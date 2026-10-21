@@ -4,6 +4,15 @@ Electron + React + React Flow 的桌面端视觉小说创作套件，配一个�
 
 > 当前进度：**阶段 1–7 已完成**：schema、项目与素材、蓝图编辑器、场景时间轴、纯浏览器运行时、Web 打包导出、electron-builder 桌面打包（Windows 免安装目录 / zip / 单文件 portable），以及内置 ffmpeg 的完整 NSIS 安装包（已静默安装 + 卸载验证）。
 
+## 下载 VN Studio
+
+**最终用户请到本仓库的 [Releases](../../releases) 下载 Windows 安装包**：
+
+- `VN-Studio-Setup-<version>-x64.exe`：完整环境安装包（内置 ffmpeg，推荐；支持 `/S` 静默安装与 `/D=<目录>` 指定安装位置）。
+- `VN-Studio-Setup-<version>.exe`：electron-builder 标准 NSIS 安装包。
+
+> 源码仓库**不包含** `node_modules`、打包产物和 `exe`，所以「下载源码」不等于能直接运行；需要自己构建时见下方「本地运行与验证」。仓库已配置 GitHub Actions：推送 `v*` 标签会自动构建并上传两个安装包到 Releases，手动运行 `Build Windows installer` 可在 Actions Artifacts 中下载。
+
 ## 阶段路线
 
 | 阶段 | 内容 | 状态 |
@@ -118,6 +127,13 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 > 桌面版已内置 ffmpeg（打包后在 `resources/bin/ffmpeg.exe`，[media.cjs](editor/electron/lib/media.cjs) 优先使用它），用户无需预装。免安装运行用 `editor/release/win-unpacked/VN Studio.exe`，正式分发用 `editor/release/VN-Studio-Setup-0.1.0-x64.exe`（支持 `/S` 静默安装、`/D=<目录>` 指定安装位置）。
 >
 > 注意：如果项目位于“低完整性级别（Low IL）”目录（某些沙箱/受限目录），其中生成的 exe 会继承 Low，双击安装时会报 `NSIS Error: Error writing temporary file`。`scripts/build-installer.mjs` 会自动把安装包提升为 Medium；其他手动产物可用 `icacls <exe> /setintegritylevel Medium` 处理。
+
+## 发布新版本（GitHub Releases）
+
+1. 修改版本号：根 `package.json` 与 `editor/package.json` 的 `version`（安装包文件名/版本资源取后者）。
+2. 提交并打标签：`git tag v0.1.0 && git push origin v0.1.0`。
+3. GitHub Actions（[build-windows.yml](.github/workflows/build-windows.yml)）会在 `windows-latest` 上安装依赖与 ffmpeg、跑测试、构建两个 NSIS 安装包，并自动创建 Release 上传 `VN-Studio-Setup-*.exe` 与 `INSTALLER-INFO.json`。
+4. 不发布 Release 时，也可以在 Actions 页面手动运行 `Build Windows installer`，从 Artifacts 下载安装包。
 
 ## 验收结果
 
