@@ -78,6 +78,50 @@ function truncate(text, max) {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
+// ---------------------------------------------------------------------------
+// 界面材质（settings.uiSkin / 场景 textbox.material / choice.material）
+// ---------------------------------------------------------------------------
+
+const MATERIAL_MODES = new Set(['stretch', 'cover', 'contain']);
+
+function normalizeMaterial(source) {
+  if (!source || typeof source !== 'object') return null;
+  const material = {};
+  if (typeof source.imageAssetId === 'string' && source.imageAssetId) {
+    material.imageAssetId = source.imageAssetId;
+  }
+  if (MATERIAL_MODES.has(source.imageMode)) material.imageMode = source.imageMode;
+  if (source.imageOpacity !== null && source.imageOpacity !== undefined) {
+    material.imageOpacity = clamp01(source.imageOpacity, 1);
+  }
+  if (typeof source.borderColor === 'string' && source.borderColor) {
+    material.borderColor = source.borderColor;
+  }
+  if (source.borderWidthPx !== null && source.borderWidthPx !== undefined) {
+    material.borderWidthPx = clamp(asNumber(source.borderWidthPx, 0), 0, 24);
+  }
+  if (source.borderRadiusPx !== null && source.borderRadiusPx !== undefined) {
+    material.borderRadiusPx = clamp(asNumber(source.borderRadiusPx, 0), 0, 120);
+  }
+  if (typeof source.textColor === 'string' && source.textColor) material.textColor = source.textColor;
+  if (source.gapPx !== null && source.gapPx !== undefined) {
+    material.gapPx = clamp(asNumber(source.gapPx, 0), 0, 60);
+  }
+  if (typeof source.hoverBackgroundColor === 'string' && source.hoverBackgroundColor) {
+    material.hoverBackgroundColor = source.hoverBackgroundColor;
+  }
+  if (typeof source.hoverBorderColor === 'string' && source.hoverBorderColor) {
+    material.hoverBorderColor = source.hoverBorderColor;
+  }
+  return Object.keys(material).length ? material : null;
+}
+
+function materialBackgroundSize(mode) {
+  if (mode === 'cover') return 'cover';
+  if (mode === 'contain') return 'contain';
+  return '100% 100%';
+}
+
 function formatDuration(ms) {
   const total = Math.max(0, Math.round(asNumber(ms, 0)));
   const minutes = Math.floor(total / 60000);
@@ -159,6 +203,7 @@ export function createRuntime(options = {}) {
   const projectId = project.meta?.id || 'unknown-project';
   const projectTitle = project.meta?.title || '未命名项目';
   const startNodeId = settings.startNodeId ?? null;
+  const uiSkin = settings.uiSkin && typeof settings.uiSkin === 'object' ? settings.uiSkin : {};
 
   const imageAssets = new Map();
   const audioAssets = new Map();
@@ -404,6 +449,94 @@ export function createRuntime(options = {}) {
     return entry;
   }
 
+  function drawImageInBox(image, dx, dy, dw, dh, mode) {
+    const iw = image.naturalWidth || image.width || 0;
+    const ih = image.naturalHeight || image.height || 0;
+    if (!iw || !ih || dw <= 0 || dh <= 0) return;
+    if (!mode || mode === 'stretch') {
+      context.drawImage(image, dx, dy, dw, dh);
+      return;
+    }
+    const scale = mode === 'contain' ? Math.min(dw / iw, dh / ih) : Math.max(dw / iw, dh / ih);
+    const width = iw * scale;
+    const height = ih * scale;
+    context.drawImage(image, dx + (dw - width) / 2, dy + (dh - height) / 2, width, height);
+  }
+
+  /** 给 DOM 面板挂材质：图片由 CSS 伪元素绘制，边框/圆角用内联样式。 */
+  function applyMaterialToElement(element, source) {
+    if (!element) return;
+    const material = normalizeMaterial(source);
+    element.classList.remove('vnrt-materialized');
+    element.style.removeProperty('--vnrt-material-image');
+    element.style.removeProperty('--vnrt-material-size');
+    element.style.removeProperty('--vnrt-material-opacity');
+    element.style.borderColor = '';
+    element.style.borderWidth = '';
+    element.style.borderRadius = '';
+    if (!material) return;
+    if (material.borderColor) element.style.borderColor = material.borderColor;
+    if (material.borderWidthPx !== undefined) element.style.borderWidth = `${material.borderWidthPx}px`;
+    if (material.borderRadiusPx !== undefined) element.style.borderRadius = `${material.borderRadiusPx}px`;
+    const asset = material.imageAssetId ? imageAssets.get(material.imageAssetId) : null;
+    if (!asset) return;
+    element.classList.add('vnrt-materialized');
+    element.style.setProperty('--vnrt-material-size', materialBackgroundSize(material.imageMode));
+    element.style.setProperty('--vnrt-material-opacity', String(material.imageOpacity ?? 1));
+    resolveUrl(asset.path).then((url) => {
+      if (url) element.style.setProperty('--vnrt-material-image', `url("${url}")`);
+    });
+  }
+
+  /** 标题界面整屏背景材质。 */
+  function applyBackdropToElement(element, source) {
+    if (!element) return;
+    const material = normalizeMaterial(source);
+    element.classList.remove('vnrt-materialized');
+    element.style.removeProperty('--vnrt-material-image');
+    element.style.removeProperty('--vnrt-material-size');
+    element.style.removeProperty('--vnrt-material-opacity');
+    if (!material) return;
+    const asset = material.imageAssetId ? imageAssets.get(material.imageAssetId) : null;
+    if (!asset) return;
+    element.classList.add('vnrt-materialized');
+    element.style.setProperty('--vnrt-material-size', materialBackgroundSize(material.imageMode));
+    element.style.setProperty('--vnrt-material-opacity', String(material.imageOpacity ?? 1));
+    resolveUrl(asset.path).then((url) => {
+      if (url) element.style.setProperty('--vnrt-material-image', `url("${url}")`);
+    });
+  }
+
+  /** 选项按钮材质：通过 CSS 变量作用于 overlay 下的所有按钮。 */
+  function applyChoiceMaterial(overlay, source) {
+    if (!overlay) return;
+    const material = normalizeMaterial(source);
+    if (!material) return;
+    const style = overlay.style;
+    if (material.borderColor) style.setProperty('--vnrt-choice-border', material.borderColor);
+    if (material.borderWidthPx !== undefined) {
+      style.setProperty('--vnrt-choice-border-width', `${material.borderWidthPx}px`);
+    }
+    if (material.borderRadiusPx !== undefined) {
+      style.setProperty('--vnrt-choice-radius', `${material.borderRadiusPx}px`);
+    }
+    if (material.textColor) style.setProperty('--vnrt-choice-text', material.textColor);
+    if (material.gapPx !== undefined) style.setProperty('--vnrt-choice-gap', `${material.gapPx}px`);
+    if (material.hoverBackgroundColor) {
+      style.setProperty('--vnrt-choice-hover-bg', material.hoverBackgroundColor);
+    }
+    if (material.hoverBorderColor) {
+      style.setProperty('--vnrt-choice-hover-border', material.hoverBorderColor);
+    }
+    const asset = material.imageAssetId ? imageAssets.get(material.imageAssetId) : null;
+    if (!asset) return;
+    style.setProperty('--vnrt-choice-size', materialBackgroundSize(material.imageMode));
+    style.setProperty('--vnrt-choice-image-opacity', String(material.imageOpacity ?? 1));
+    resolveUrl(asset.path).then((url) => {
+      if (url) style.setProperty('--vnrt-choice-image', `url("${url}")`);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // 舞台布局 / 绘制
   // ---------------------------------------------------------------------------
@@ -599,7 +732,9 @@ export function createRuntime(options = {}) {
     const height = clamp(asNumber(box.height, DEFAULT_TEXTBOX.height), 0.05, 1) * stageHeight;
     const left = clamp01(box.x, DEFAULT_TEXTBOX.x) * stageWidth - width / 2;
     const top = clamp01(box.y, DEFAULT_TEXTBOX.y) * stageHeight - height / 2;
-    const radius = Math.min(14, height * 0.08);
+    const material = normalizeMaterial(box.material);
+    const radius =
+      material?.borderRadiusPx !== undefined ? material.borderRadiusPx : Math.min(14, height * 0.08);
 
     context.save();
     context.globalAlpha = clamp01(box.backgroundOpacity, DEFAULT_TEXTBOX.backgroundOpacity) * opacity;
@@ -608,13 +743,30 @@ export function createRuntime(options = {}) {
     context.fill();
     context.restore();
 
-    context.save();
-    context.globalAlpha = opacity * 0.55;
-    context.strokeStyle = 'rgba(152, 180, 212, 0.32)';
-    context.lineWidth = 1.5;
-    roundRectPath(context, left, top, width, height, radius);
-    context.stroke();
-    context.restore();
+    // 材质图片：按圆角裁剪后按 stretch/cover/contain 绘制。
+    if (material?.imageAssetId) {
+      const entry = ensureImage(material.imageAssetId);
+      if (entry && entry.status === 'ready') {
+        context.save();
+        roundRectPath(context, left, top, width, height, radius);
+        context.clip();
+        context.globalAlpha = opacity * (material.imageOpacity ?? 1);
+        drawImageInBox(entry.image, left, top, width, height, material.imageMode);
+        context.restore();
+      }
+    }
+
+    const borderColor = material?.borderColor || 'rgba(152, 180, 212, 0.32)';
+    const borderWidth = material?.borderWidthPx !== undefined ? material.borderWidthPx : 1.5;
+    if (borderWidth > 0) {
+      context.save();
+      context.globalAlpha = material?.borderColor ? opacity : opacity * 0.55;
+      context.strokeStyle = borderColor;
+      context.lineWidth = borderWidth;
+      roundRectPath(context, left, top, width, height, radius);
+      context.stroke();
+      context.restore();
+    }
 
     const dialogue = state?.dialogue;
     if (!dialogue) return;
@@ -1170,6 +1322,7 @@ export function createRuntime(options = {}) {
     });
     overlay.append(list);
     frame.append(overlay);
+    applyChoiceMaterial(overlay, getNode(state.nodeId)?.material);
     choiceSession = { key: sessionKey, overlay };
   }
 
@@ -2110,6 +2263,12 @@ export function createRuntime(options = {}) {
   }
 
   frame.append(toastEl);
+
+  // 全局界面材质：标题 / 结束 / 存档菜单（对话框与选项分别由场景/节点材质驱动）。
+  applyMaterialToElement(titleCard, uiSkin.title?.card);
+  applyBackdropToElement(titleOverlay, uiSkin.title?.backdrop);
+  applyMaterialToElement(endCard, uiSkin.ending?.card);
+  applyMaterialToElement(menuPanel, uiSkin.menu?.panel);
 
   if (autoStart || !showTitle) {
     phase = 'playing';

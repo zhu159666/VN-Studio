@@ -26,6 +26,7 @@ import {
   nextPrefixedId,
   typedDefaultValue,
 } from './controls';
+import { ChoiceMaterialFields } from './MaterialFields';
 import '../../styles/inspector.css';
 
 const TYPE_LABELS = {
@@ -415,7 +416,7 @@ function DialogueFields({ project, projectDir, node, actions, notify }) {
 // choice
 // ---------------------------------------------------------------------------
 
-function ChoiceFields({ project, node, actions, notify }) {
+function ChoiceFields({ project, projectDir, node, actions, notify }) {
   const updateNode = (patch) => actions.updateNode(node.id, patch);
   const exits = node.exits ?? [];
   const usedIds = new Set(exits.map((exit) => exit.id));
@@ -509,6 +510,27 @@ function ChoiceFields({ project, node, actions, notify }) {
             </div>
           ))}
         </SubList>
+      </Section>
+
+      <Section
+        title="选项材质"
+        defaultOpen={false}
+        badge={node.material?.imageAssetId ? '图片' : '内置'}
+      >
+        <Hint>
+          每个选项节点可以单独设置按钮材质（图片 + 边框/圆角/文字色/间距/悬停配色）；不设置时使用运行时内置样式。
+        </Hint>
+        <ChoiceMaterialFields
+          material={node.material ?? null}
+          onChange={(material) => updateNode({ material })}
+          projectDir={projectDir}
+          assets={project?.assets?.images ?? []}
+        />
+        <div className="vn-insp-ctl-actions">
+          <SmallButton onClick={() => updateNode({ material: null })}>
+            恢复内置样式
+          </SmallButton>
+        </div>
       </Section>
     </>
   );

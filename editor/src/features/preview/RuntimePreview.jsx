@@ -15,6 +15,14 @@ export default function RuntimePreview({ project, projectDir }) {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('loading');
 
+  // 材质变化时重建运行时，让「演示」Tab 立即反映新材质（其余编辑不触发重建）。
+  const materialSignature = JSON.stringify({
+    uiSkin: project.settings?.uiSkin ?? null,
+    nodes: (project.nodes ?? [])
+      .filter((node) => node?.type === 'scene' || node?.type === 'choice')
+      .map((node) => [node.id, node.material ?? node.textbox?.material ?? null]),
+  });
+
   useEffect(() => {
     let alive = true;
     setStatus('loading');
@@ -83,7 +91,7 @@ export default function RuntimePreview({ project, projectDir }) {
       runtimeRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.meta?.id, projectDir]);
+  }, [project.meta?.id, projectDir, materialSignature]);
 
   const restart = () => {
     try {

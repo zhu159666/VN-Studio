@@ -197,6 +197,39 @@ function buildFixture(mockAssets) {
   ];
   project.editor.selectedNodeIds = [scene.id];
 
+  // 界面材质验收数据：对话框 / 选项 / 标题 / 结束 / 存档菜单
+  project.settings.uiSkin = {
+    title: {
+      card: { borderColor: '#f59e0b', borderWidthPx: 2, borderRadiusPx: 18 },
+    },
+    ending: {
+      card: { borderColor: '#c084fc', borderWidthPx: 2, borderRadiusPx: 16 },
+    },
+    menu: {
+      panel: { borderColor: '#22d3ee', borderWidthPx: 2, borderRadiusPx: 16 },
+    },
+  };
+  scene.textbox.material = {
+    imageAssetId: 'img_smoke_bg',
+    imageMode: 'cover',
+    imageOpacity: 0.35,
+    borderColor: '#00d1b2',
+    borderWidthPx: 3,
+    borderRadiusPx: 12,
+  };
+  choice.material = {
+    imageAssetId: 'img_smoke_sprite',
+    imageMode: 'cover',
+    imageOpacity: 0.3,
+    borderColor: '#ff9f6b',
+    borderWidthPx: 2,
+    borderRadiusPx: 14,
+    textColor: '#fff3e0',
+    gapPx: 12,
+    hoverBackgroundColor: '#7c2d12',
+    hoverBorderColor: '#ffb27a',
+  };
+
   schema.assertValidProject(project);
   return project;
 }
@@ -612,6 +645,32 @@ async function main() {
       await editorPage.waitForSelector('.vn-preview__stage');
       await editorPage.waitForTimeout(1800);
       await capture(editorPage, 'chromium-runtime-preview.png');
+
+      // 界面材质：标题 / 结束 / 存档菜单的边框色应来自 settings.uiSkin
+      const skinCheck = await editorPage.evaluate(() => {
+        const stage = document.querySelector('.vn-preview__stage');
+        if (!stage) return { ok: false };
+        const menuPanel = stage.querySelector('.vnrt-menu__panel');
+        const titleCard = stage.querySelector('.vnrt-title__card');
+        const endCard = stage.querySelector('.vnrt-ended__card');
+        return {
+          ok: true,
+          menuBorder: menuPanel ? getComputedStyle(menuPanel).borderTopColor : null,
+          titleBorder: titleCard ? getComputedStyle(titleCard).borderTopColor : null,
+          endBorder: endCard ? getComputedStyle(endCard).borderTopColor : null,
+        };
+      });
+      if (!skinCheck.ok) throw new Error('找不到运行时预览舞台');
+      if (skinCheck.menuBorder !== 'rgb(34, 211, 238)') {
+        throw new Error(`存档菜单材质未生效：${skinCheck.menuBorder}`);
+      }
+      if (skinCheck.titleBorder !== 'rgb(245, 158, 11)') {
+        throw new Error(`标题材质未生效：${skinCheck.titleBorder}`);
+      }
+      if (skinCheck.endBorder !== 'rgb(192, 132, 252)') {
+        throw new Error(`结束材质未生效：${skinCheck.endBorder}`);
+      }
+
       const previewStage = editorPage.locator('.vn-preview__stage');
       const previewBox = await previewStage.boundingBox();
       if (previewBox) {
@@ -621,8 +680,40 @@ async function main() {
         );
         await editorPage.waitForTimeout(1600);
         await capture(editorPage, 'chromium-runtime-stage.png');
+
+        // 推进到 choice 节点，验证选项按钮材质
+        for (let step = 0; step < 6; step += 1) {
+          if ((await editorPage.locator('.vn-preview__stage .vnrt-choice__btn').count()) > 0) break;
+          await editorPage.mouse.click(
+            previewBox.x + previewBox.width / 2,
+            previewBox.y + previewBox.height / 2,
+          );
+          await editorPage.waitForTimeout(500);
+        }
+        await editorPage.mouse.move(5, 5);
+        await editorPage.waitForTimeout(300);
+        const choiceBorder = await editorPage.evaluate(() => {
+          const button = document.querySelector('.vn-preview__stage .vnrt-choice__btn');
+          if (!button) return null;
+          const computed = getComputedStyle(button);
+          return { border: computed.borderTopColor, radius: computed.borderTopLeftRadius };
+        });
+        if (choiceBorder) {
+          if (choiceBorder.border !== 'rgb(255, 159, 107)') {
+            throw new Error(`选项材质边框未生效：${choiceBorder.border}`);
+          }
+          await capture(editorPage, 'chromium-runtime-choice-material.png');
+        }
+        const menuButton = editorPage.locator('.vn-preview__stage .vnrt-menu-btn');
+        if ((await menuButton.count()) > 0) {
+          await menuButton.click();
+          await editorPage.waitForTimeout(400);
+          await capture(editorPage, 'chromium-runtime-menu-material.png');
+          await editorPage.keyboard.press('Escape');
+        }
       }
     } catch (error) {
+      if (String(error.message).includes('材质')) throw error;
       console.warn('[ui-smoke] 运行时预览步骤跳过：', error.message);
     }
 

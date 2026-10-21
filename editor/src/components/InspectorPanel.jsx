@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useProjectController } from '../state/ProjectContext';
+import { BackdropFields, MaterialFields } from './inspectors/MaterialFields';
 
 const IMAGE_ROLES = [
   ['background', '背景'],
@@ -214,6 +215,14 @@ export default function InspectorPanel({ project, selectedAsset, onRemoveAsset }
     await onRemoveAsset(selectedAsset);
   };
 
+  const uiSkin = project.settings?.uiSkin ?? {};
+  const imageAssets = project.assets?.images ?? [];
+  const projectDir = controller.projectDir;
+  const patchUiSkin = (patch) => actions.updateSettings({ uiSkin: { ...uiSkin, ...patch } });
+  const patchTitleSkin = (patch) => patchUiSkin({ title: { ...(uiSkin.title ?? {}), ...patch } });
+  const patchEndingSkin = (patch) => patchUiSkin({ ending: { ...(uiSkin.ending ?? {}), ...patch } });
+  const patchMenuSkin = (patch) => patchUiSkin({ menu: { ...(uiSkin.menu ?? {}), ...patch } });
+
   return (
     <div className="vn-inspector">
       {selectedAsset ? (
@@ -391,6 +400,55 @@ export default function InspectorPanel({ project, selectedAsset, onRemoveAsset }
             </Field>
             <ReadonlyRow label="起始节点" value={project.settings?.startNodeId} mono />
             <ReadonlyRow label="背景色" value={project.settings?.backgroundColor} mono />
+          </section>
+
+          <section className="vn-inspector__section">
+            <h3 className="vn-inspector__heading">界面材质</h3>
+            <p className="vn-inspector__hint">
+              用图片替换内置界面背景，可调填充方式与透明度。对话框材质在场景属性的「对话框材质」，选项材质在 choice 节点的「选项材质」。
+            </p>
+
+            <h4 className="vn-inspector__heading">标题界面 · 背景图</h4>
+            <BackdropFields
+              backdrop={uiSkin.title?.backdrop ?? null}
+              onChange={(backdrop) => patchTitleSkin({ backdrop })}
+              projectDir={projectDir}
+              assets={imageAssets}
+            />
+            <h4 className="vn-inspector__heading">标题界面 · 卡片</h4>
+            <MaterialFields
+              material={uiSkin.title?.card ?? null}
+              onChange={(card) => patchTitleSkin({ card })}
+              projectDir={projectDir}
+              assets={imageAssets}
+              label="标题卡片"
+            />
+
+            <h4 className="vn-inspector__heading">结束界面 · 卡片</h4>
+            <MaterialFields
+              material={uiSkin.ending?.card ?? null}
+              onChange={(card) => patchEndingSkin({ card })}
+              projectDir={projectDir}
+              assets={imageAssets}
+              label="结束卡片"
+            />
+
+            <h4 className="vn-inspector__heading">存档菜单 · 面板</h4>
+            <MaterialFields
+              material={uiSkin.menu?.panel ?? null}
+              onChange={(panel) => patchMenuSkin({ panel })}
+              projectDir={projectDir}
+              assets={imageAssets}
+              label="存档面板"
+            />
+
+            <button
+              type="button"
+              className="vn-btn vn-btn--ghost"
+              onClick={() => actions.updateSettings({ uiSkin: {} })}
+            >
+              清空界面材质
+            </button>
           </section>
 
           <section className="vn-inspector__section">

@@ -163,22 +163,24 @@
 .vnrt-choice__options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--vnrt-choice-gap, 10px);
   width: min(640px, 82%);
 }
 
 .vnrt-choice__btn {
   appearance: none;
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   margin: 0;
   padding: 11px 18px;
-  border: 1px solid rgba(122, 152, 190, 0.5);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(24, 34, 47, 0.94), rgba(12, 18, 26, 0.94));
-  color: #e9f2fd;
+  border: var(--vnrt-choice-border-width, 1px) solid var(--vnrt-choice-border, rgba(122, 152, 190, 0.5));
+  border-radius: var(--vnrt-choice-radius, 8px);
+  background: var(--vnrt-choice-bg, linear-gradient(180deg, rgba(24, 34, 47, 0.94), rgba(12, 18, 26, 0.94)));
+  color: var(--vnrt-choice-text, #e9f2fd);
   font: inherit;
   font-size: clamp(13px, 1.7vw, 18px);
   text-align: left;
@@ -186,10 +188,30 @@
   transition: border-color 0.14s ease, transform 0.14s ease, background 0.14s ease;
 }
 
+/* 选项材质图片层（由运行时 JS 设置 --vnrt-choice-image 等变量） */
+.vnrt-choice__btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--vnrt-choice-image, none);
+  background-size: var(--vnrt-choice-size, cover);
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--vnrt-choice-image-opacity, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.vnrt-choice__btn > * {
+  position: relative;
+  z-index: 1;
+}
+
 .vnrt-choice__btn:hover,
 .vnrt-choice__btn:focus-visible {
-  border-color: #6ba6f4;
-  background: linear-gradient(180deg, rgba(36, 56, 82, 0.98), rgba(17, 28, 42, 0.98));
+  border-color: var(--vnrt-choice-hover-border, #6ba6f4);
+  background: var(--vnrt-choice-hover-bg, linear-gradient(180deg, rgba(36, 56, 82, 0.98), rgba(17, 28, 42, 0.98)));
   transform: translateY(-1px);
   outline: none;
 }
@@ -775,4 +797,35 @@
   .vnrt-menu__grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- 界面材质（标题 / 结束 / 存档菜单 / 标题背景） ----------
+ * 运行时 JS 在元素上设置：
+ *   --vnrt-material-image / --vnrt-material-size / --vnrt-material-opacity
+ * 图片由伪元素绘制，文字等内容保持在图片之上。
+ */
+
+.vnrt-title__card.vnrt-materialized,
+.vnrt-ended__card.vnrt-materialized,
+.vnrt-menu__panel.vnrt-materialized {
+  position: relative;
+  isolation: isolate;
+}
+
+.vnrt-title.vnrt-materialized {
+  isolation: isolate;
+}
+
+.vnrt-materialized::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--vnrt-material-image, none);
+  background-size: var(--vnrt-material-size, cover);
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--vnrt-material-opacity, 1);
+  pointer-events: none;
+  z-index: -1;
 }

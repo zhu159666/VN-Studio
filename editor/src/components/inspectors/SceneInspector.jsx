@@ -21,6 +21,7 @@ import {
   nextPrefixedId,
   typedDefaultValue,
 } from './controls';
+import { MaterialFields } from './MaterialFields';
 import '../../styles/inspector.css';
 
 const BACKGROUND_FITS = [
@@ -297,6 +298,7 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
     opacity: textbox.opacity ?? DEFAULT_TEXTBOX.opacity,
   };
   if (textbox.paddingPx != null) baseTextbox.paddingPx = textbox.paddingPx;
+  baseTextbox.material = textbox.material ?? null;
   const patchTextbox = (patch) => updateNode({ textbox: { ...baseTextbox, ...patch } });
 
   const baseAudio = {
@@ -579,6 +581,29 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
               max={1}
               onChange={(opacity) => patchTextbox({ opacity })}
             />
+          </div>
+        </Section>
+
+        {/* C2. 对话框材质 */}
+        <Section
+          title="对话框材质"
+          defaultOpen={false}
+          badge={baseTextbox.material?.imageAssetId ? '图片' : '内置'}
+        >
+          <Hint>
+            选一张图片作为对话框背景，可调填充方式、透明度、边框与圆角；不设置时使用运行时内置样式。
+          </Hint>
+          <MaterialFields
+            material={baseTextbox.material}
+            onChange={(material) => patchTextbox({ material })}
+            projectDir={projectDir}
+            assets={images}
+            label="对话框"
+          />
+          <div className="vn-insp-ctl-actions">
+            <SmallButton onClick={() => patchTextbox({ material: null })}>
+              恢复内置样式
+            </SmallButton>
           </div>
         </Section>
 

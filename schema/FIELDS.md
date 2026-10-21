@@ -69,7 +69,7 @@ my-project/
 
 根对象 `additionalProperties: false`：**未知顶层字段会被 schema 拒绝**。根对象的 `required` 共 8 项：`schemaVersion`、`meta`、`settings`、`assets`、`variables`、`nodes`、`edges`、`timelines`。后两者虽然是必填键，但可以是空数组 / 空对象。
 
-schema 共 66 个 `$defs`，本文按用途分组覆盖全部字段：基础模式 def（`isoDateTime` / `color` / `normalizedCoord` / `opacity` / 各 id 与路径 pattern）、`meta` / `settings` / `assets`、8 类节点（场景内部结构 `sceneBackground` / `sprite` / `textbox` / `sceneAudio` / `sfxRef` / `sceneVariable` 按 4.2 的属性面板分组说明）、`edge`、4 类轨道与 `keyframe` / `easing`、`layout` / `editorState`、`saveState`。
+schema 共 69 个 `$defs`，本文按用途分组覆盖全部字段：基础模式 def（`isoDateTime` / `color` / `normalizedCoord` / `opacity` / 各 id 与路径 pattern）、`meta` / `settings` / `assets`、8 类节点（场景内部结构 `sceneBackground` / `sprite` / `textbox` / `sceneAudio` / `sfxRef` / `sceneVariable` 按 4.2 的属性面板分组说明）、`edge`、4 类轨道与 `keyframe` / `easing`、`layout` / `editorState`、`saveState`，以及界面材质 `uiMaterial` / `choiceMaterial` / `uiBackdrop`。
 
 | 字段 | 类型 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -351,6 +351,7 @@ schema 共 66 个 `$defs`，本文按用途分组覆盖全部字段：基础模�
 | `backgroundOpacity` | `opacity` 0–1 | ✓ | 底框透明度 |
 | `opacity` | `opacity` 0–1 | ✓ | 整个文本框的透明度 |
 | `paddingPx` | number 0–200 | — | 内边距（像素） |
+| `material` | `uiMaterial` 或 `null` | — | 对话框材质（图片 + 边框 + 圆角），见 4.3.1；`null` 省略 = 运行时内置样式 |
 
 **D. 音频 `audio`（必填）**
 
@@ -396,6 +397,7 @@ schema 共 66 个 `$defs`，本文按用途分组覆盖全部字段：基础模�
 | --- | --- | --- | --- |
 | `exits` | array\<`exit`\>，2–12 项，元素不重复 | ✓ | 每个选项一个出口；`id` 创建后不变，`name` 即选项文本（可改） |
 | `prompt` | string，≤500 | — | 选项提示语（显示在选项上方） |
+| `material` | `choiceMaterial` 或 `null` | — | 本选项节点的按钮材质，见 4.3.1；省略 = 运行时内置样式 |
 
 ```json
 {
@@ -407,6 +409,36 @@ schema 共 66 个 `$defs`，本文按用途分组覆盖全部字段：基础模�
   "exits": [{ "id": "buy", "name": "买伞", "description": "花 45 元买伞" }, { "id": "wait", "name": "在店里等雨停" }]
 }
 ```
+
+### 4.3.1 界面材质（可选）
+
+对话框、选项按钮、标题 / 结束 / 存档菜单都支持用「图片材质 + 基础样式」替换内置外观。所有材质字段都可省略（省略 = 运行时内置样式），因此在旧项目里新增/删除材质不会影响其他字段。
+
+| 位置 | 字段 | 作用范围 |
+| --- | --- | --- |
+| 对话框 | `scene.textbox.material`（`uiMaterial`） | 每个场景独立 |
+| 选项按钮 | `choice.material`（`choiceMaterial`） | 每个 choice 节点独立 |
+| 标题界面 | `settings.uiSkin.title.backdrop`（`uiBackdrop`）/ `.card`（`uiMaterial`） | 项目全局 |
+| 结束界面 | `settings.uiSkin.ending.card`（`uiMaterial`） | 项目全局 |
+| 存档菜单 | `settings.uiSkin.menu.panel`（`uiMaterial`） | 项目全局 |
+
+- `uiMaterial`：`imageAssetId`（图片素材 id 或 `null`）、`imageMode`（`stretch` 拉伸 / `cover` 铺满裁切 / `contain` 完整显示）、`imageOpacity`（0–1）、`borderColor`、`borderWidthPx`（0–24）、`borderRadiusPx`（0–120）。
+- `choiceMaterial`：包含 `uiMaterial` 全部字段，另加 `textColor`、`gapPx`（0–60）、`hoverBackgroundColor`、`hoverBorderColor`。
+- `uiBackdrop`：`imageAssetId`、`imageMode`、`imageOpacity`（标题整屏背景图）。
+
+运行时行为：对话框图片按圆角裁剪后绘制在底框色之上、文字之下；选项/标题/结束/菜单的图片绘制在面板背景之上、文字之下；边框颜色与宽度为空时沿用内置样式。
+
+```json
+{
+  "settings": {
+    "uiSkin": {
+      "menu": { "panel": { "imageAssetId": "ui_panel", "imageMode": "stretch", "borderColor": "#22d3ee", "borderRadiusPx": 16 } }
+    }
+  },
+  "textbox": { "material": { "imageAssetId": "ui_dialogue", "imageMode": "cover", "imageOpacity": 0.8, "borderColor": "#00d1b2", "borderWidthPx": 3, "borderRadiusPx": 12 } }
+}
+```
+
 ### 4.4 minigame（小游戏节点）
 
 阻塞式播放小游戏；收到 `postMessage` 结果后按**出口 `name` 精确匹配** `result` 字符串。

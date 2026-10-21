@@ -323,6 +323,75 @@
           "type": "string",
           "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
           "description": "界面语言提示，如 zh-CN。"
+        },
+        "uiSkin": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "全局界面材质：标题 / 结束 / 存档菜单。对话框材质在场景 textbox.material，选项材质在 choice 节点 material。",
+          "properties": {
+            "title": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "backdrop": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/uiBackdrop"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "标题界面整屏背景图。"
+                },
+                "card": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/uiMaterial"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "标题卡片材质。"
+                }
+              }
+            },
+            "ending": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "card": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/uiMaterial"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "结束界面卡片材质。"
+                }
+              }
+            },
+            "menu": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "panel": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/uiMaterial"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "存档菜单面板材质。"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1291,6 +1360,134 @@
         }
       }
     },
+    "uiMaterial": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "界面材质：用图片替换内置面板背景，并可覆盖边框与圆角；所有字段可省略，省略时沿用运行时内置样式。",
+      "properties": {
+        "imageAssetId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/assetId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "材质图片（图片素材 id）；null 或缺省表示不用图片。"
+        },
+        "imageMode": {
+          "enum": [
+            "stretch",
+            "cover",
+            "contain"
+          ],
+          "description": "图片填充方式：stretch 拉伸铺满 / cover 铺满裁切 / contain 完整显示。"
+        },
+        "imageOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "borderColor": {
+          "$ref": "#/$defs/color"
+        },
+        "borderWidthPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 24,
+          "description": "边框宽度（px）；0 表示不描边。"
+        },
+        "borderRadiusPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120,
+          "description": "圆角半径（px）。"
+        }
+      }
+    },
+    "choiceMaterial": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "选项按钮材质：在 uiMaterial 基础上增加文字颜色、选项间距与悬停配色。",
+      "properties": {
+        "imageAssetId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/assetId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "imageMode": {
+          "enum": [
+            "stretch",
+            "cover",
+            "contain"
+          ]
+        },
+        "imageOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "borderColor": {
+          "$ref": "#/$defs/color"
+        },
+        "borderWidthPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "borderRadiusPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "textColor": {
+          "$ref": "#/$defs/color",
+          "description": "选项文字颜色。"
+        },
+        "gapPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 60,
+          "description": "选项之间的间距（px）。"
+        },
+        "hoverBackgroundColor": {
+          "$ref": "#/$defs/color",
+          "description": "鼠标悬停时的背景色（图片材质下作为叠加色）。"
+        },
+        "hoverBorderColor": {
+          "$ref": "#/$defs/color"
+        }
+      }
+    },
+    "uiBackdrop": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "整屏背景图材质（用于标题界面）。",
+      "properties": {
+        "imageAssetId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/assetId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "imageMode": {
+          "enum": [
+            "stretch",
+            "cover",
+            "contain"
+          ]
+        },
+        "imageOpacity": {
+          "$ref": "#/$defs/opacity"
+        }
+      }
+    },
     "textbox": {
       "type": "object",
       "required": [
@@ -1344,6 +1541,17 @@
           "type": "number",
           "minimum": 0,
           "maximum": 200
+        },
+        "material": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/uiMaterial"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "对话框材质：图片背景 + 边框 + 圆角；null 或缺省时使用运行时内置样式。"
         }
       }
     },
@@ -1662,6 +1870,17 @@
           "items": {
             "$ref": "#/$defs/exit"
           }
+        },
+        "material": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/choiceMaterial"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "本选项节点的按钮材质（每个 choice 节点可单独设置）；null 或缺省时使用运行时内置样式。"
         }
       }
     },
