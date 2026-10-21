@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "kind": "manual",
+  "slot": 1,
+  "savedAt": "2026-10-21T06:12:00Z",
+  "projectId": "vn-rainy-store-01",
+  "projectTitle": "雨夜便利店",
+  "schemaVersion": 1,
+  "label": "第二次循环·收银台找零前",
+  "nodeId": "n_scene_counter",
+  "variables": {
+    "money": {
+      "type": "number",
+      "value": 105
+    },
+    "has_umbrella": {
+      "type": "boolean",
+      "value": true
+    },
+    "last_minigame_result": {
+      "type": "string",
+      "value": "win"
+    }
+  },
+  "timeline": {
+    "nodeId": "n_scene_counter",
+    "timeMs": 1200
+  },
+  "thumbnailDataUrl": "data:image/png;base64,iVBORw0KGgo=",
+  "playtimeMs": 452300
+}

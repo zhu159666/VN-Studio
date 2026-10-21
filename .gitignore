@@ -1,0 +1,50 @@
+node_modules/
+.pnpm-store/
+
+# 构建产物
+editor/dist/
+editor/release/
+editor/build/
+editor/out/
+editor/.installer-stage/
+editor/.nsis/
+runtime/dist/
+dist/
+*.asar
+
+# 阶段二/五/六/七自动化产物（截图、临时项目、测试临时目录）
+editor/.smoke/
+editor/.tmp-phase2-*/
+editor/.tmp-phase5-*/
+editor/.tmp-phase6-*/
+editor/.tmp-phase7-*/
+.tmp-phase2-media/
+.tmp-phase2-ipc/
+.tmp-inspector-check/
+editor/tmp-inspector-check/
+
+# 存档 / 备份是运行时数据，不随仓库分发（保留目录）
+saves/*.json
+saves/*.webp
+saves/*.png
+saves/*backup*/
+saves/*backup*/*
+saves/*-latest.txt
+
+# 工作区里的其他独立项目与本地工具（不属于本仓库）
+tools/
+dsh-plugins/
+dsh-browser.lnk
+
+# dsh-animation-studio 的渲染/预览产物（不属于 VN Studio）
+gd-preview/
+gd-frame-*.png
+anim-smoke-preview.png
+smoke-test*.png
+smoke-test*.mp4
+梯度下降讲解.mp4
+
+# 编辑器临时文件
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,461 @@
+/* 阶段四：场景时间轴 */
+
+.vn-tl {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-1);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  outline: none;
+}
+
+.vn-tl:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.vn-tl--empty {
+  align-items: stretch;
+  justify-content: center;
+}
+
+.vn-tl-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: var(--text-2);
+  text-align: center;
+  font-size: 12px;
+}
+
+.vn-tl-empty strong {
+  color: var(--text-1);
+  font-size: 13px;
+}
+
+/* ---------- 工具栏 ---------- */
+.vn-tl-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  overflow-x: auto;
+}
+
+.vn-tl-toolbar__left,
+.vn-tl-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.vn-tl-toolbar__right {
+  margin-left: auto;
+}
+
+.vn-tl-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.vn-tl-scene {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-1);
+  font-size: 11.5px;
+}
+
+.vn-tl-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-1);
+  min-width: 132px;
+}
+
+.vn-tl-inline-field,
+.vn-tl-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  font-size: 11px;
+}
+
+.vn-tl-duration {
+  width: 82px;
+  height: 26px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.vn-tl-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-1);
+  font-size: 11px;
+}
+
+.vn-tl-zoom .vn-btn {
+  min-height: 24px;
+  padding: 2px 7px;
+}
+
+.vn-tl-add {
+  position: relative;
+}
+
+.vn-tl-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 60;
+  width: 310px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-1);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* portal 到 body 的「+ 轨道」菜单：必须盖住时间轴轨道/标尺/播放头。 */
+.vn-tl-menu--floating {
+  z-index: 900;
+}
+
+.vn-tl-menu__group {
+  padding: 2px 0;
+}
+
+.vn-tl-menu__title {
+  padding: 4px 8px;
+  color: var(--text-2);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.vn-tl-menu__empty {
+  color: var(--text-2);
+  font-size: 10px;
+}
+
+.vn-tl-menu__item {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.vn-tl-menu__item:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+/* ---------- 轨道区域 ---------- */
+.vn-tl-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  background: var(--bg-0);
+}
+
+.vn-tl-content {
+  position: relative;
+  min-height: 100%;
+}
+
+.vn-tl-ruler-row,
+.vn-tl-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.vn-tl-ruler-row {
+  height: 26px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.vn-tl-label {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  width: 190px;
+  min-width: 190px;
+  padding: 3px 26px 3px 8px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+}
+
+.vn-tl-label--ruler {
+  color: var(--text-2);
+  font-size: 10.5px;
+}
+
+.vn-tl-label__name {
+  color: var(--text-1);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 152px;
+}
+
+.vn-tl-label__meta {
+  color: var(--text-2);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.vn-tl-track-del {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.vn-tl-track-del:hover {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.vn-tl-ruler {
+  position: relative;
+  height: 26px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.vn-tl-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding-left: 4px;
+  border-left: 1px solid #2c3640;
+  color: var(--text-2);
+  font-size: 9.5px;
+  line-height: 26px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.vn-tl-track {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  background:
+    repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255, 255, 255, 0.025) 60px);
+  cursor: crosshair;
+}
+
+.vn-tl-track--empty {
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  color: var(--text-2);
+  font-size: 11px;
+  background: var(--bg-0);
+}
+
+.vn-tl-track__line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+  pointer-events: none;
+}
+
+.vn-tl-key {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  background: var(--bg-2);
+  cursor: ew-resize;
+  z-index: 2;
+  transition: background 100ms ease, box-shadow 100ms ease;
+}
+
+.vn-tl-key:hover {
+  background: color-mix(in srgb, var(--accent) 40%, var(--bg-2));
+}
+
+.vn-tl-key.is-selected {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.vn-tl-key.is-dragging {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+.vn-tl-playhead {
+  position: absolute;
+  top: 26px;
+  bottom: 0;
+  width: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 55%, transparent);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.vn-tl-playhead__handle {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ---------- 关键帧编辑区 ---------- */
+.vn-tl-inspector {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
+  max-height: 96px;
+  overflow: auto;
+}
+
+.vn-tl-inspector__title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11.5px;
+  font-weight: 600;
+  min-width: 64px;
+}
+
+.vn-tl-inspector__meta {
+  color: var(--text-2);
+  font-size: 9.5px;
+  font-weight: 400;
+}
+
+.vn-tl-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  font-size: 10.5px;
+}
+
+.vn-tl-field .vn-input {
+  width: 86px;
+  height: 26px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.vn-tl-easing {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.vn-tl-easing__label {
+  color: var(--text-2);
+  font-size: 10.5px;
+}
+
+.vn-tl-easing__btn {
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  font-size: 10.5px;
+}
+
+.vn-tl-easing__btn.is-active {
+  border-color: var(--accent);
+  color: var(--text-0);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+}
+
+.vn-tl-easing__slider {
+  width: 90px;
+  accent-color: var(--accent);
+}
+
+.vn-tl-easing__value {
+  width: 34px;
+  color: var(--text-1);
+  font-size: 10.5px;
+}
+
+.vn-tl-easing__code {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+.vn-tl-delete-key {
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+}
+
+.vn-tl-hint {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

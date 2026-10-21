@@ -1,0 +1,612 @@
+/* 阶段三属性面板样式：右栏约 320px，紧凑分组、可折叠。
+   只使用 styles/base.css 里的 CSS 变量。 */
+
+/* ------------------------------------------------------------------------- */
+/* 面板根容器                                                                */
+/* ------------------------------------------------------------------------- */
+
+.vn-scene-insp,
+.vn-node-insp,
+.vn-edge-insp {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 10px 12px 36px;
+  background: var(--bg-1);
+}
+
+.vn-scene-insp-header,
+.vn-node-insp-header,
+.vn-edge-insp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 2px;
+}
+
+.vn-scene-insp-heading,
+.vn-node-insp-heading,
+.vn-edge-insp-heading {
+  min-width: 0;
+}
+
+.vn-scene-insp-title,
+.vn-node-insp-title,
+.vn-edge-insp-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-0);
+}
+
+.vn-scene-insp-subtitle,
+.vn-node-insp-subtitle,
+.vn-edge-insp-subtitle {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: var(--text-2);
+  word-break: break-all;
+}
+
+.vn-scene-insp-kind,
+.vn-node-insp-kind,
+.vn-edge-insp-kind {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: -0.2px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* 折叠分组                                                                  */
+/* ------------------------------------------------------------------------- */
+
+.vn-insp-ctl-section {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+
+.vn-insp-ctl-section-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.vn-insp-ctl-section-head::-webkit-details-marker {
+  display: none;
+}
+
+.vn-insp-ctl-section-head::before {
+  content: '▸';
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--text-2);
+  transition: transform 120ms ease;
+}
+
+.vn-insp-ctl-section[open] > .vn-insp-ctl-section-head::before {
+  transform: rotate(90deg);
+}
+
+.vn-insp-ctl-section-head:hover {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.vn-insp-ctl-section-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.vn-insp-ctl-section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vn-insp-ctl-section-badge {
+  flex: 0 0 auto;
+  max-width: 46%;
+  overflow: hidden;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-0);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vn-insp-ctl-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 9px 10px;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* 行 / 标签 / 提示                                                          */
+/* ------------------------------------------------------------------------- */
+
+.vn-insp-ctl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-row--readonly {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vn-insp-ctl-label {
+  color: var(--text-1);
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.vn-insp-ctl-required {
+  margin-left: 2px;
+  color: var(--danger);
+}
+
+.vn-insp-ctl-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-readonly {
+  min-width: 0;
+  color: var(--text-1);
+  font-size: 11px;
+  text-align: right;
+  word-break: break-all;
+}
+
+.vn-insp-ctl-hint {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.vn-insp-ctl-hint--warn {
+  color: var(--warn);
+}
+
+.vn-insp-ctl-hint--error {
+  color: var(--danger);
+}
+
+.vn-insp-ctl-hint--success {
+  color: var(--success);
+}
+
+.vn-insp-ctl-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.vn-insp-ctl-empty {
+  margin: 0;
+  padding: 10px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 11px;
+  text-align: center;
+}
+
+.vn-insp-ctl-null {
+  flex: 0 0 auto;
+  color: var(--text-2);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.vn-insp-ctl-suffix {
+  flex: 0 0 auto;
+  color: var(--text-2);
+  font-size: 10px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* 输入控件                                                                  */
+/* ------------------------------------------------------------------------- */
+
+.vn-insp-ctl-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.vn-insp-ctl-inline > .vn-insp-ctl-input {
+  flex: 1 1 auto;
+}
+
+.vn-insp-ctl-invalid,
+.vn-insp-ctl-invalid:hover,
+.vn-insp-ctl-invalid:focus {
+  border-color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg-0));
+}
+
+.vn-insp-ctl-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 小按钮 */
+.vn-insp-ctl-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.vn-insp-ctl-btn:hover:not(:disabled) {
+  border-color: var(--text-2);
+  background: var(--bg-0);
+  color: var(--text-0);
+}
+
+.vn-insp-ctl-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.vn-insp-ctl-btn--danger {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-2));
+  color: color-mix(in srgb, var(--danger) 85%, white);
+}
+
+.vn-insp-ctl-btn--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 24%, var(--bg-2));
+  color: color-mix(in srgb, var(--danger) 70%, white);
+}
+
+/* 开关 */
+.vn-insp-ctl-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-1);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.vn-insp-ctl-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* 颜色 */
+.vn-insp-ctl-color {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-color-picker {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-0);
+  cursor: pointer;
+}
+
+.vn-insp-ctl-color-picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.vn-insp-ctl-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.vn-insp-ctl-color-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 缩略图 */
+.vn-insp-ctl-thumb {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-0);
+}
+
+.vn-insp-ctl-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.vn-insp-ctl-thumb-placeholder {
+  color: var(--text-2);
+  font-size: 9px;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------------------- */
+/* 列表                                                                      */
+/* ------------------------------------------------------------------------- */
+
+.vn-insp-ctl-sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-sublist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-sublist-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.vn-insp-ctl-sublist-count {
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-0);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+.vn-insp-ctl-sublist-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vn-scene-insp-item,
+.vn-node-insp-exit,
+.vn-node-insp-assignment {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-1);
+}
+
+.vn-scene-insp-item-head,
+.vn-node-insp-exit-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-scene-insp-item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vn-node-insp-exit-id {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vn-node-insp-exit-head > .vn-insp-ctl-btn:last-child {
+  margin-left: auto;
+}
+
+.vn-node-insp-exit-status {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--warn);
+  font-size: 10px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+/* 固定出口 / 声明出口 */
+.vn-node-insp-exits {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.vn-node-insp-exit-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-1);
+  font-size: 11px;
+}
+
+.vn-node-insp-exit-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vn-node-insp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* typedValue 编辑器                                                          */
+/* ------------------------------------------------------------------------- */
+
+.vn-insp-ctl-typed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-0) 40%, var(--bg-1));
+}
+
+.vn-insp-ctl-typed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-typed-type {
+  flex: 0 0 116px;
+  width: 116px;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+.vn-insp-ctl-typed-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-json {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.vn-insp-ctl-json-area {
+  min-height: 66px;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------------- */
+/* 只读 JSON                                                                 */
+/* ------------------------------------------------------------------------- */
+
+.vn-node-insp-json,
+.vn-edge-insp-json {
+  margin: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

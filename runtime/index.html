@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>VN Studio 运行时</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1220'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='15' font-weight='700' text-anchor='middle' fill='%236ba6f4'%3EVN%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./runtime.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #05070b;
+        overflow: hidden;
+      }
+      #app {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createRuntime } from './runtime.js';
+
+      const app = document.getElementById('app');
+
+      function showFatal(title, detail) {
+        app.replaceChildren();
+        const box = document.createElement('div');
+        box.className = 'vnrt-fatal';
+        const heading = document.createElement('h1');
+        heading.className = 'vnrt-fatal__title';
+        heading.textContent = title;
+        const message = document.createElement('p');
+        message.className = 'vnrt-fatal__message';
+        message.textContent = detail;
+        const hint = document.createElement('p');
+        hint.className = 'vnrt-fatal__hint';
+        hint.textContent =
+          '请用静态服务器打开本页（例如在 runtime 目录运行 python -m http.server 8080），并通过 ?game= 指向项目 JSON。';
+        box.append(heading, message, hint);
+        app.append(box);
+      }
+
+      async function boot() {
+        const params = new URLSearchParams(window.location.search);
+        const gameParam = params.get('game') || './game.json';
+        let gameUrl;
+        try {
+          gameUrl = new URL(gameParam, document.baseURI);
+        } catch (error) {
+          showFatal('项目地址无效', `${gameParam}（${error?.message || error}）`);
+          return;
+        }
+
+        let project;
+        try {
+          const response = await fetch(gameUrl.href, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+          }
+          project = await response.json();
+        } catch (error) {
+          console.error('[runtime] 读取项目失败', gameUrl.href, error);
+          showFatal('无法读取项目文件', `${gameUrl.href}：${error?.message || error}`);
+          return;
+        }
+
+        if (!project || typeof project !== 'object' || !Array.isArray(project.nodes)) {
+          showFatal('项目文件格式不正确', `${gameUrl.href} 不是有效的 VN Studio 项目（缺少 nodes 数组）。`);
+          return;
+        }
+
+        const assetBaseUrl = new URL('.', gameUrl).href;
+        try {
+          const runtime = createRuntime({
+            root: app,
+            project,
+            assetBaseUrl,
+            autoStart: params.get('autostart') === '1',
+            showTitle: params.get('showtitle') !== '0',
+          });
+          window.__vnRuntime = runtime;
+          if (project?.meta?.title) {
+            document.title = `${project.meta.title} · VN Studio 运行时`;
+          }
+        } catch (error) {
+          console.error('[runtime] 启动失败', error);
+          showFatal('运行时启动失败', error?.message || String(error));
+        }
+      }
+
+      boot();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,245 @@
+:root {
+  --bg-0: #0f1216;
+  --bg-1: #161b21;
+  --bg-2: #1d242c;
+  --bg-3: #252e38;
+  --border: #2c3640;
+  --text-0: #e7edf3;
+  --text-1: #9aa8b5;
+  --text-2: #6f7d8a;
+  --accent: #5aa9ff;
+  --accent-2: #7be0c0;
+  --danger: #ff6b6b;
+  --warn: #ffc857;
+  --success: #67d99a;
+  --radius: 8px;
+  --font-ui: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #33404d;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #445566;
+  background-clip: padding-box;
+}
+
+.vn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-2));
+  color: var(--text-0);
+  font-size: 12px;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.vn-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 30%, var(--bg-2));
+}
+
+.vn-btn--ghost {
+  border-color: var(--border);
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+
+.vn-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.vn-btn--danger {
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--border));
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg-2));
+  color: color-mix(in srgb, var(--danger) 80%, white);
+}
+
+.vn-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 26%, var(--bg-2));
+}
+
+.vn-input,
+.vn-select,
+.vn-textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-0);
+  color: var(--text-0);
+  padding: 6px 8px;
+  font-size: 12px;
+  transition: border-color 120ms ease;
+}
+
+.vn-input:hover,
+.vn-select:hover,
+.vn-textarea:hover {
+  border-color: var(--bg-3);
+}
+
+.vn-input:focus,
+.vn-select:focus,
+.vn-textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.vn-textarea {
+  resize: vertical;
+  min-height: 64px;
+  font-family: var(--font-ui);
+}
+
+.vn-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: -0.2px;
+}
+
+.vn-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.vn-chip--kind {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vn-chip--image {
+  color: #8fd0ff;
+  border-color: #2d4a63;
+}
+
+.vn-chip--audio {
+  color: #b8a7ff;
+  border-color: #463d6b;
+}
+
+.vn-chip--video {
+  color: #ffc0a8;
+  border-color: #6b4438;
+}
+
+.vn-chip--minigame {
+  color: #8ee8c5;
+  border-color: #2e5c4d;
+}
+
+.vn-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: min(680px, 80vw);
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-0);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  animation: vn-toast-in 160ms ease;
+}
+
+.vn-toast--success {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+}
+
+.vn-toast--error {
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--border));
+  color: color-mix(in srgb, var(--danger) 60%, white);
+}
+
+.vn-toast--warn {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+}
+
+@keyframes vn-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

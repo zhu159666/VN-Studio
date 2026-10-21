@@ -1,0 +1,149 @@
+/* 画布左下角的“场景预览”浮动小窗（画中画） */
+
+.vn-scene-preview {
+  position: absolute;
+  left: 48px; /* 避开 React Flow 左下角的缩放控件 */
+  bottom: 12px;
+  z-index: 60;
+  width: 300px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-1);
+  color: var(--text-1);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  font-family: var(--font-ui);
+  user-select: none;
+}
+
+.vn-scene-preview.is-collapsed {
+  width: 300px;
+}
+
+.vn-scene-preview__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+}
+
+.vn-scene-preview__head:active {
+  cursor: grabbing;
+}
+
+.vn-scene-preview.is-collapsed .vn-scene-preview__head {
+  border-bottom: none;
+}
+
+.vn-scene-preview__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.vn-scene-preview__title {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-0);
+}
+
+.vn-scene-preview__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: 10.5px;
+}
+
+.vn-scene-preview__state {
+  flex: 0 0 auto;
+  color: var(--text-2);
+  font-size: 10px;
+}
+
+.vn-scene-preview__state.is-error {
+  color: var(--danger);
+}
+
+.vn-scene-preview__btn {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  font-size: 10.5px;
+}
+
+.vn-scene-preview__btn:hover {
+  border-color: var(--accent);
+  color: var(--text-0);
+}
+
+.vn-scene-preview__body {
+  background: #070a0e;
+}
+
+.vn-scene-preview__stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #070a0e;
+}
+
+.vn-scene-preview__stage > * {
+  height: 100%;
+}
+
+.vn-scene-preview__hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--text-2);
+  font-size: 10px;
+}
+
+.vn-scene-preview__replay {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  font-size: 10px;
+}
+
+.vn-scene-preview__replay:hover {
+  border-color: var(--accent);
+  color: var(--text-0);
+}
+
+.vn-scene-preview__error {
+  padding: 4px 8px;
+  border-top: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: rgba(24, 12, 12, 0.94);
+  color: #ffb4b4;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 小窗里隐藏运行器的顶栏、结束遮罩和提示气泡，避免遮挡画面 */
+.vn-scene-preview .vnrt-topbar,
+.vn-scene-preview .vnrt-ended,
+.vn-scene-preview .vnrt-toast {
+  display: none;
+}

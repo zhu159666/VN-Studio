@@ -1,0 +1,32 @@
+{
+  "name": "vn-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "桌面端视觉小说创作套件：Electron + React 编辑器 / 纯浏览器运行时",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:schema": "node --test \"tests/schema.test.mjs\"",
+    "check:schema": "node scripts/check-schema.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "editor:dev": "pnpm --filter @vn-studio/editor dev",
+    "editor:dev:electron": "pnpm --filter @vn-studio/editor dev:electron",
+    "editor:build": "pnpm --filter @vn-studio/editor build",
+    "editor:start": "pnpm --filter @vn-studio/editor start",
+    "editor:smoke": "pnpm --filter @vn-studio/editor smoke",
+    "editor:dist": "pnpm --filter @vn-studio/editor dist",
+    "editor:dist:dir": "pnpm --filter @vn-studio/editor dist:dir",
+    "editor:installer": "pnpm --filter @vn-studio/editor dist:installer",
+    "smoke:ui": "node scripts/ui-smoke.mjs",
+    "smoke:runtime": "node scripts/runtime-smoke.mjs",
+    "smoke:export": "node scripts/export-smoke.mjs",
+    "smoke:desktop": "node scripts/desktop-smoke.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "playwright-core": "^1.64.1"
+  }
+}

@@ -1,0 +1,1456 @@
+{
+  "$schema": "./schema/schema.json",
+  "schemaVersion": 1,
+  "meta": {
+    "id": "vn-rainy-store-01",
+    "title": "雨夜便利店",
+    "author": "VN Studio 示例工程组",
+    "description": "用于验收的极小型视觉小说样例：雨夜进店、买伞、一段雨景视频、一次撑伞小游戏，最后按小游戏结果分支，并由 jump 节点跳回开场场景形成循环。",
+    "version": "0.1.0",
+    "createdAt": "2026-10-20T13:05:00Z",
+    "updatedAt": "2026-10-21T06:30:00Z",
+    "tags": [
+      "示例",
+      "雨夜",
+      "单场景循环",
+      "小游戏"
+    ]
+  },
+  "settings": {
+    "startNodeId": "n_scene_rain",
+    "resolution": {
+      "width": 1280,
+      "height": 720
+    },
+    "backgroundColor": "#0b0f14",
+    "textSpeedCps": 30,
+    "autoSave": {
+      "enabled": true,
+      "onSceneEnter": true
+    },
+    "runtime": {
+      "allowSkipUnread": false,
+      "defaultMinigameTimeoutMs": 15000
+    },
+    "locale": "zh-CN"
+  },
+  "assets": {
+    "images": [
+      {
+        "id": "bg_street_rain",
+        "kind": "image",
+        "name": "便利店门口·雨夜",
+        "role": "background",
+        "path": "assets/images/bg_street_rain.webp",
+        "width": 1280,
+        "height": 720,
+        "format": "webp",
+        "sizeBytes": 412000,
+        "importedAt": "2026-10-20T13:06:12Z"
+      },
+      {
+        "id": "bg_store_counter",
+        "kind": "image",
+        "name": "便利店收银台",
+        "role": "background",
+        "path": "assets/images/bg_store_counter.webp",
+        "width": 1280,
+        "height": 720,
+        "format": "webp",
+        "sizeBytes": 356800,
+        "importedAt": "2026-10-20T13:06:40Z"
+      },
+      {
+        "id": "sprite_me",
+        "kind": "image",
+        "name": "主角·湿发便装",
+        "role": "sprite",
+        "path": "assets/images/sprite_me.webp",
+        "width": 640,
+        "height": 960,
+        "format": "webp",
+        "sizeBytes": 188400,
+        "importedAt": "2026-10-20T13:07:05Z"
+      },
+      {
+        "id": "sprite_clerk",
+        "kind": "image",
+        "name": "店员·便利店制服",
+        "role": "sprite",
+        "path": "assets/images/sprite_clerk.webp",
+        "width": 640,
+        "height": 960,
+        "format": "webp",
+        "sizeBytes": 201900,
+        "importedAt": "2026-10-20T13:07:31Z"
+      }
+    ],
+    "audio": [
+      {
+        "id": "a_bgm_rain",
+        "kind": "audio",
+        "name": "雨夜·BGM（循环）",
+        "role": "bgm",
+        "path": "assets/audio/bgm_rain_loop.ogg",
+        "format": "ogg",
+        "durationMs": 96000,
+        "sizeBytes": 1536000,
+        "importedAt": "2026-10-20T13:10:00Z",
+        "trim": {
+          "startMs": 0,
+          "endMs": 96000
+        },
+        "gainDb": -3.5,
+        "loop": true
+      },
+      {
+        "id": "a_sfx_chime",
+        "kind": "audio",
+        "name": "进店门铃",
+        "role": "sfx",
+        "path": "assets/audio/sfx_store_chime.ogg",
+        "format": "ogg",
+        "durationMs": 1800,
+        "sizeBytes": 28800,
+        "importedAt": "2026-10-20T13:10:20Z",
+        "trim": null,
+        "gainDb": -1.5
+      },
+      {
+        "id": "a_sfx_umbrella_open",
+        "kind": "audio",
+        "name": "撑开透明伞",
+        "role": "sfx",
+        "path": "assets/audio/sfx_umbrella_open.ogg",
+        "format": "ogg",
+        "durationMs": 900,
+        "sizeBytes": 14400,
+        "importedAt": "2026-10-20T13:10:35Z",
+        "trim": null,
+        "gainDb": 0
+      },
+      {
+        "id": "a_voice_clerk_welcome",
+        "kind": "audio",
+        "name": "店员·欢迎光临（语音）",
+        "role": "voice",
+        "path": "assets/audio/voice_clerk_welcome.ogg",
+        "format": "ogg",
+        "durationMs": 3200,
+        "sizeBytes": 51200,
+        "importedAt": "2026-10-20T13:11:00Z",
+        "trim": {
+          "startMs": 120,
+          "endMs": 3200
+        },
+        "gainDb": 1.5
+      }
+    ],
+    "videos": [
+      {
+        "id": "v_rain_street",
+        "kind": "video",
+        "name": "雨夜街景·过场",
+        "path": "assets/videos/v_rain_street.mp4",
+        "format": "mp4",
+        "durationMs": 8000,
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "hasAudio": true,
+        "sizeBytes": 2520000,
+        "importedAt": "2026-10-20T13:12:00Z"
+      }
+    ],
+    "minigames": [
+      {
+        "id": "mg_umbrella",
+        "kind": "minigame",
+        "name": "撑伞小游戏",
+        "path": "assets/minigames/mg_umbrella_open.html",
+        "declaredExits": [
+          "win",
+          "lose",
+          "timeout"
+        ],
+        "mode": "blocking",
+        "description": "在雨里撑开透明伞并保持 5 秒不翻面；成功上报 win，伞面翻折上报 lose，超时上报 timeout。",
+        "sizeBytes": 48600,
+        "importedAt": "2026-10-20T13:13:00Z"
+      }
+    ]
+  },
+  "variables": {
+    "money": {
+      "type": "number",
+      "value": 120
+    },
+    "minigame_wins": {
+      "type": "number",
+      "value": 0
+    },
+    "has_umbrella": {
+      "type": "boolean",
+      "value": false
+    },
+    "last_choice": {
+      "type": "string",
+      "value": ""
+    },
+    "umbrella_color": {
+      "type": "string",
+      "value": "transparent"
+    },
+    "inventory": {
+      "type": "array",
+      "value": [
+        "phone",
+        "wallet",
+        "tissues"
+      ]
+    },
+    "run_stats": {
+      "type": "object",
+      "value": {
+        "loopCount": 0,
+        "rainIntensity": 0.7
+      }
+    },
+    "last_seen_ending": {
+      "type": "null",
+      "value": null
+    },
+    "last_minigame_result": {
+      "type": "string",
+      "value": ""
+    }
+  },
+  "nodes": [
+    {
+      "id": "n_scene_rain",
+      "type": "scene",
+      "name": "店外·雨夜",
+      "position": {
+        "x": 60,
+        "y": 140
+      },
+      "notes": "开场场景：雨夜中的便利店门口。时间轴同时驱动立绘、背景缩放、BGM 音量与文本框透明度。",
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "background": {
+        "assetId": "bg_street_rain",
+        "fit": "cover",
+        "x": 0.5,
+        "y": 0.5,
+        "scale": 1,
+        "opacity": 1
+      },
+      "sprites": [
+        {
+          "id": "char_me",
+          "assetId": "sprite_me",
+          "x": 0.3,
+          "y": 0.72,
+          "scale": 1,
+          "zIndex": 10,
+          "opacity": 1
+        },
+        {
+          "id": "char_clerk",
+          "assetId": "sprite_clerk",
+          "x": 0.68,
+          "y": 0.6,
+          "scale": 1.05,
+          "zIndex": 12,
+          "opacity": 0.92
+        }
+      ],
+      "textbox": {
+        "x": 0.5,
+        "y": 0.84,
+        "width": 0.86,
+        "height": 0.2,
+        "fontSizePx": 30,
+        "color": "#f2efe4",
+        "background": "#0b1018",
+        "backgroundOpacity": 0.78,
+        "opacity": 1,
+        "paddingPx": 26
+      },
+      "audio": {
+        "bgmAssetId": "a_bgm_rain",
+        "volume": 0.55,
+        "loop": true,
+        "fadeInMs": 1200
+      },
+      "variables": [
+        {
+          "key": "visit_count",
+          "value": {
+            "type": "number",
+            "value": 0
+          },
+          "description": "进入本场景的次数。全局变量表里没有该键时，按此初值创建（演示 scene.variables 的初始化语义）。"
+        }
+      ]
+    },
+    {
+      "id": "n_dialogue_open",
+      "type": "dialogue",
+      "name": "开场旁白",
+      "position": {
+        "x": 260,
+        "y": 140
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "text": "雨点砸在便利店的玻璃门上，像有人不耐烦地敲门。你收起伞，才发现伞骨断了两根。",
+      "speedCps": 28
+    },
+    {
+      "id": "n_dialogue_clerk",
+      "type": "dialogue",
+      "name": "店员招呼",
+      "position": {
+        "x": 460,
+        "y": 140
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "text": "欢迎光临！今晚这雨啊，一时半会儿是停不了的。",
+      "speaker": "店员",
+      "portrait": {
+        "assetId": "sprite_clerk",
+        "expression": "smile",
+        "x": 0.68,
+        "y": 0.6,
+        "scale": 1.05
+      },
+      "voice": {
+        "assetId": "a_voice_clerk_welcome",
+        "volume": 0.9
+      },
+      "speedCps": 28,
+      "autoAdvanceMs": null
+    },
+    {
+      "id": "n_choice_umbrella",
+      "type": "choice",
+      "name": "买伞还是等雨",
+      "position": {
+        "x": 660,
+        "y": 140
+      },
+      "notes": "两个选项各对应一条 sequence 边；出口 id 稳定，显示名可随时改。",
+      "prompt": "要买一把伞，还是再等等？",
+      "exits": [
+        {
+          "id": "buy",
+          "name": "买一把透明伞",
+          "description": "花 15 元，马上回家。"
+        },
+        {
+          "id": "wait",
+          "name": "先躲一会儿雨",
+          "description": "在店里看看雨，再决定。"
+        }
+      ]
+    },
+    {
+      "id": "n_dialogue_wait",
+      "type": "dialogue",
+      "name": "窗边等雨",
+      "position": {
+        "x": 660,
+        "y": 360
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "text": "你靠在窗边看雨。水痕把霓虹灯拉成一条条彩色的线，店里的暖气烘得人发困。……雨还是没有变小的意思，你最终还是走向了货架。",
+      "speedCps": 30
+    },
+    {
+      "id": "n_var_buy",
+      "type": "variable",
+      "name": "记录买伞并扣款",
+      "position": {
+        "x": 880,
+        "y": 140
+      },
+      "notes": "一次变量操作演示：字符串 set、布尔 set、数值 subtract。",
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "assignments": [
+        {
+          "key": "last_choice",
+          "op": "set",
+          "value": {
+            "type": "string",
+            "value": "buy_umbrella"
+          }
+        },
+        {
+          "key": "has_umbrella",
+          "op": "set",
+          "value": {
+            "type": "boolean",
+            "value": true
+          }
+        },
+        {
+          "key": "money",
+          "op": "subtract",
+          "value": {
+            "type": "number",
+            "value": 15
+          }
+        }
+      ]
+    },
+    {
+      "id": "n_scene_counter",
+      "type": "scene",
+      "name": "收银台",
+      "position": {
+        "x": 1080,
+        "y": 140
+      },
+      "notes": "第二个场景：结算与找零。时间轴驱动店员淡入、主角位移、背景亮度与文本框字号。",
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "background": {
+        "assetId": "bg_store_counter",
+        "fit": "cover",
+        "x": 0.5,
+        "y": 0.5,
+        "scale": 1.04,
+        "opacity": 1
+      },
+      "sprites": [
+        {
+          "id": "char_clerk",
+          "assetId": "sprite_clerk",
+          "x": 0.48,
+          "y": 0.58,
+          "scale": 1.1,
+          "zIndex": 12,
+          "opacity": 1
+        },
+        {
+          "id": "char_me",
+          "assetId": "sprite_me",
+          "x": 0.78,
+          "y": 0.74,
+          "scale": 1,
+          "zIndex": 10,
+          "opacity": 1
+        }
+      ],
+      "textbox": {
+        "x": 0.5,
+        "y": 0.84,
+        "width": 0.86,
+        "height": 0.2,
+        "fontSizePx": 30,
+        "color": "#f2efe4",
+        "background": "#0b1018",
+        "backgroundOpacity": 0.78,
+        "opacity": 1,
+        "paddingPx": 26
+      },
+      "audio": {
+        "bgmAssetId": "a_bgm_rain",
+        "volume": 0.4,
+        "loop": true,
+        "fadeInMs": 600
+      },
+      "variables": [
+        {
+          "key": "receipt_count",
+          "value": {
+            "type": "number",
+            "value": 1
+          },
+          "description": "结算次数（场景变量初值）。"
+        }
+      ]
+    },
+    {
+      "id": "n_dialogue_receipt",
+      "type": "dialogue",
+      "name": "找零",
+      "position": {
+        "x": 1280,
+        "y": 140
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "text": "透明伞十五元。这是找您的零钱，拿好——雨大，路上小心。",
+      "speaker": "店员",
+      "portrait": {
+        "assetId": "sprite_clerk",
+        "expression": "smile",
+        "x": 0.48,
+        "y": 0.58,
+        "scale": 1.1
+      },
+      "speedCps": 26
+    },
+    {
+      "id": "n_video_rain",
+      "type": "video",
+      "name": "雨夜过场",
+      "position": {
+        "x": 1480,
+        "y": 140
+      },
+      "notes": "播放时暂停 BGM，结束后恢复；completed / skipped 各一条出边。",
+      "exits": [
+        {
+          "id": "completed",
+          "name": "completed"
+        },
+        {
+          "id": "skipped",
+          "name": "skipped"
+        }
+      ],
+      "videoAssetId": "v_rain_street",
+      "volume": 0.8,
+      "loop": false,
+      "showSkipButton": true,
+      "skipAfterMs": 3000
+    },
+    {
+      "id": "n_minigame_umbrella",
+      "type": "minigame",
+      "name": "撑伞挑战",
+      "position": {
+        "x": 1660,
+        "y": 140
+      },
+      "notes": "阻塞式小游戏：结果串按出口 name 精确匹配，命中失败时走 defaultExitId（timeout）。",
+      "exits": [
+        {
+          "id": "win",
+          "name": "win",
+          "description": "撑伞成功。"
+        },
+        {
+          "id": "lose",
+          "name": "lose",
+          "description": "伞面翻折。"
+        },
+        {
+          "id": "timeout",
+          "name": "timeout",
+          "description": "超时未上报结果。"
+        }
+      ],
+      "minigameAssetId": "mg_umbrella",
+      "defaultExitId": "timeout",
+      "timeoutMs": 15000,
+      "instructions": "在雨里撑开透明伞并保持 5 秒不翻面。"
+    },
+    {
+      "id": "n_var_win",
+      "type": "variable",
+      "name": "记录小游戏成功",
+      "position": {
+        "x": 1660,
+        "y": 360
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "assignments": [
+        {
+          "key": "last_minigame_result",
+          "op": "set",
+          "value": {
+            "type": "string",
+            "value": "win"
+          }
+        },
+        {
+          "key": "minigame_wins",
+          "op": "add",
+          "value": {
+            "type": "number",
+            "value": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "n_var_lose",
+      "type": "variable",
+      "name": "记录小游戏失败",
+      "position": {
+        "x": 1660,
+        "y": 520
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "assignments": [
+        {
+          "key": "last_minigame_result",
+          "op": "set",
+          "value": {
+            "type": "string",
+            "value": "lose"
+          }
+        }
+      ]
+    },
+    {
+      "id": "n_var_timeout",
+      "type": "variable",
+      "name": "记录小游戏超时",
+      "position": {
+        "x": 1660,
+        "y": 680
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "assignments": [
+        {
+          "key": "last_minigame_result",
+          "op": "set",
+          "value": {
+            "type": "string",
+            "value": "timeout"
+          }
+        }
+      ]
+    },
+    {
+      "id": "n_condition_result",
+      "type": "condition",
+      "name": "小游戏结果判断",
+      "position": {
+        "x": 1400,
+        "y": 520
+      },
+      "notes": "true / false 两个固定出口各一条 conditional 边。",
+      "expression": "last_minigame_result == \"win\"",
+      "exits": [
+        {
+          "id": "true",
+          "name": "true"
+        },
+        {
+          "id": "false",
+          "name": "false"
+        }
+      ]
+    },
+    {
+      "id": "n_dialogue_success",
+      "type": "dialogue",
+      "name": "撑伞成功",
+      "position": {
+        "x": 1180,
+        "y": 380
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "text": "你把伞撑开，一朵透明的蘑菇在雨里慢慢长大。雨声被隔在外面，听起来忽然温柔了。"
+    },
+    {
+      "id": "n_dialogue_fail",
+      "type": "dialogue",
+      "name": "撑伞失败",
+      "position": {
+        "x": 1180,
+        "y": 700
+      },
+      "exits": [
+        {
+          "id": "next",
+          "name": "next"
+        }
+      ],
+      "text": "伞面猛地一歪，雨水顺着领口灌进来。你打了个哆嗦，还是把伞举得更高了一点。"
+    },
+    {
+      "id": "n_jump_loop",
+      "type": "jump",
+      "name": "回到雨夜循环",
+      "position": {
+        "x": 900,
+        "y": 540
+      },
+      "notes": "无出口的跳转节点：把控制权送回开场的场景节点，形成可反复体验的雨夜循环。",
+      "exits": [],
+      "targetNodeId": "n_scene_rain"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e01_scene_open",
+      "from": "n_scene_rain",
+      "port": "next",
+      "to": "n_dialogue_open",
+      "kind": "sequence"
+    },
+    {
+      "id": "e02_open_clerk",
+      "from": "n_dialogue_open",
+      "port": "next",
+      "to": "n_dialogue_clerk",
+      "kind": "sequence"
+    },
+    {
+      "id": "e03_clerk_choice",
+      "from": "n_dialogue_clerk",
+      "port": "next",
+      "to": "n_choice_umbrella",
+      "kind": "sequence"
+    },
+    {
+      "id": "e04_choice_buy",
+      "from": "n_choice_umbrella",
+      "port": "buy",
+      "to": "n_var_buy",
+      "kind": "sequence"
+    },
+    {
+      "id": "e05_choice_wait",
+      "from": "n_choice_umbrella",
+      "port": "wait",
+      "to": "n_dialogue_wait",
+      "kind": "sequence"
+    },
+    {
+      "id": "e06_wait_buy",
+      "from": "n_dialogue_wait",
+      "port": "next",
+      "to": "n_var_buy",
+      "kind": "sequence"
+    },
+    {
+      "id": "e07_buy_counter",
+      "from": "n_var_buy",
+      "port": "next",
+      "to": "n_scene_counter",
+      "kind": "sequence"
+    },
+    {
+      "id": "e08_counter_receipt",
+      "from": "n_scene_counter",
+      "port": "next",
+      "to": "n_dialogue_receipt",
+      "kind": "sequence"
+    },
+    {
+      "id": "e09_receipt_video",
+      "from": "n_dialogue_receipt",
+      "port": "next",
+      "to": "n_video_rain",
+      "kind": "sequence"
+    },
+    {
+      "id": "e10_video_completed",
+      "from": "n_video_rain",
+      "port": "completed",
+      "to": "n_minigame_umbrella",
+      "kind": "sequence"
+    },
+    {
+      "id": "e11_video_skipped",
+      "from": "n_video_rain",
+      "port": "skipped",
+      "to": "n_minigame_umbrella",
+      "kind": "sequence"
+    },
+    {
+      "id": "e12_minigame_win",
+      "from": "n_minigame_umbrella",
+      "port": "win",
+      "to": "n_var_win",
+      "kind": "sequence"
+    },
+    {
+      "id": "e13_minigame_lose",
+      "from": "n_minigame_umbrella",
+      "port": "lose",
+      "to": "n_var_lose",
+      "kind": "sequence"
+    },
+    {
+      "id": "e14_minigame_timeout",
+      "from": "n_minigame_umbrella",
+      "port": "timeout",
+      "to": "n_var_timeout",
+      "kind": "sequence"
+    },
+    {
+      "id": "e15_win_condition",
+      "from": "n_var_win",
+      "port": "next",
+      "to": "n_condition_result",
+      "kind": "sequence"
+    },
+    {
+      "id": "e16_lose_condition",
+      "from": "n_var_lose",
+      "port": "next",
+      "to": "n_condition_result",
+      "kind": "sequence"
+    },
+    {
+      "id": "e17_timeout_condition",
+      "from": "n_var_timeout",
+      "port": "next",
+      "to": "n_condition_result",
+      "kind": "sequence"
+    },
+    {
+      "id": "e18_condition_success",
+      "from": "n_condition_result",
+      "port": "true",
+      "to": "n_dialogue_success",
+      "kind": "conditional"
+    },
+    {
+      "id": "e19_condition_fail",
+      "from": "n_condition_result",
+      "port": "false",
+      "to": "n_dialogue_fail",
+      "kind": "conditional"
+    },
+    {
+      "id": "e20_success_loop",
+      "from": "n_dialogue_success",
+      "port": "next",
+      "to": "n_jump_loop",
+      "kind": "sequence"
+    },
+    {
+      "id": "e21_fail_loop",
+      "from": "n_dialogue_fail",
+      "port": "next",
+      "to": "n_jump_loop",
+      "kind": "sequence"
+    }
+  ],
+  "timelines": {
+    "n_scene_rain": {
+      "durationMs": 5000,
+      "tracks": [
+        {
+          "id": "tl_rain_me_x",
+          "kind": "sprite",
+          "target": "char_me",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.22,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 1400,
+              "value": 0.3,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 5000,
+              "value": 0.32,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_rain_clerk_opacity",
+          "kind": "sprite",
+          "target": "char_clerk",
+          "property": "opacity",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 900,
+              "value": 0,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 2200,
+              "value": 0.92,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 5000,
+              "value": 0.92,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_rain_bg_scale",
+          "kind": "background",
+          "property": "scale",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.12,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 2500,
+              "value": 1.02,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 5000,
+              "value": 1.06,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_rain_bgm_volume",
+          "kind": "audio",
+          "property": "volume",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.15,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 2000,
+              "value": 0.55,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 5000,
+              "value": 0.5,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_rain_textbox_opacity",
+          "kind": "textbox",
+          "property": "opacity",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 700,
+              "value": 1,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  0.42,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 5000,
+              "value": 1,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "n_scene_counter": {
+      "durationMs": 4800,
+      "tracks": [
+        {
+          "id": "tl_counter_clerk_opacity",
+          "kind": "sprite",
+          "target": "char_clerk",
+          "property": "opacity",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.3,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 800,
+              "value": 1,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 4800,
+              "value": 1,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_counter_me_x",
+          "kind": "sprite",
+          "target": "char_me",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.82,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 1600,
+              "value": 0.76,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 4800,
+              "value": 0.74,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_counter_bg_opacity",
+          "kind": "background",
+          "property": "opacity",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.8,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 2000,
+              "value": 1,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 4800,
+              "value": 1,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_counter_bgm_volume",
+          "kind": "audio",
+          "property": "volume",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.2,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 1400,
+              "value": 0.4,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 4800,
+              "value": 0.34,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "tl_counter_textbox_fontsize",
+          "kind": "textbox",
+          "property": "fontSizePx",
+          "keys": [
+            {
+              "time": 0,
+              "value": 26,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 1600,
+              "value": 30,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0.42,
+                  0
+                ],
+                "p2": [
+                  0.58,
+                  1
+                ]
+              }
+            },
+            {
+              "time": 4800,
+              "value": 30,
+              "easing": {
+                "type": "bezier",
+                "p1": [
+                  0,
+                  0
+                ],
+                "p2": [
+                  1,
+                  1
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "layout": {
+    "leftWidth": 280,
+    "rightWidth": 320,
+    "timelineHeight": 200,
+    "rightCollapsed": false,
+    "leftBottomPanel": "variables",
+    "assetView": "grid",
+    "assetTypeFilter": "all"
+  },
+  "editor": {
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    },
+    "selectedNodeIds": [
+      "n_scene_rain",
+      "n_choice_umbrella"
+    ],
+    "selectedEdgeId": null,
+    "selectedAssetId": "bg_street_rain",
+    "activeTab": "blueprint",
+    "timelinePlayheadMs": 0
+  }
+}

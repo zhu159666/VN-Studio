@@ -1,0 +1,2643 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vnstudio.local/schema/schema.json",
+  "title": "VN Studio 项目文件 Schema（草案 v1）",
+  "description": "桌面视觉小说创作套件共用的项目文件格式草案。编辑器中文件名为 project.json，导出 Web 包后为 game.json，运行时读取同一格式。所有资源路径均为相对项目（或包）根目录的路径。本文件是结构权威：节点 id / edge.port / 时间轴 target / 素材引用等引用完整性无法用 JSON Schema 表达，由编辑器保存校验与导出校验（见 FIELDS.md 校验规则章节）负责。",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "meta",
+    "settings",
+    "assets",
+    "variables",
+    "nodes",
+    "edges",
+    "timelines"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "可选。指向 schema.json 的路径，便于编辑器 / IDE 做结构校验。"
+    },
+    "schemaVersion": {
+      "$ref": "#/$defs/schemaVersion"
+    },
+    "meta": {
+      "$ref": "#/$defs/meta"
+    },
+    "settings": {
+      "$ref": "#/$defs/settings"
+    },
+    "assets": {
+      "$ref": "#/$defs/assets"
+    },
+    "variables": {
+      "$ref": "#/$defs/variableMap"
+    },
+    "nodes": {
+      "type": "array",
+      "description": "全部蓝图节点。节点 id 在项目内唯一（由测试/导出校验保证）。",
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "minItems": 1
+    },
+    "edges": {
+      "type": "array",
+      "description": "统一连线表：所有语义的连线都放这里，用 kind 区分。运行时只沿 sequence / conditional 推进，data 仅预留。",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "timelines": {
+      "$ref": "#/$defs/timelineMap"
+    },
+    "layout": {
+      "$ref": "#/$defs/layout"
+    },
+    "editor": {
+      "$ref": "#/$defs/editorState"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "项目文件格式版本。结构不兼容变更时递增，并配套迁移逻辑。"
+    },
+    "isoDateTime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$",
+      "description": "ISO-8601 UTC 时间，编辑器统一用 new Date().toISOString() 写入。"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+      "description": "十六进制颜色，支持 #RGB / #RRGGBB / #RRGGBBAA。"
+    },
+    "normalizedCoord": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "舞台归一化坐标：0–1 相对坐标，与分辨率无关。x=0 为舞台左边缘，x=1 为右边缘；y 同理。"
+    },
+    "opacity": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "透明度 / 音量这类 0–1 比例值。"
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{7,63}$",
+      "description": "项目稳定标识（创建时生成一次，之后不变），存档用它防止串档。"
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "description": "节点 id。创建后不可变；连线、跳转、时间轴都用它引用。"
+    },
+    "edgeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "description": "连线 id。"
+    },
+    "assetId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "description": "素材 id。创建后不可变，节点与时间轴用它引用素材。"
+    },
+    "exitId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "description": "出口 id（连线时写入 edge.port）。作者改名出口显示名时不改变 id，因此连线不会断。"
+    },
+    "instanceId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "description": "场景内实例 id（如某个立绘条目），供时间轴轨道按 target 引用。"
+    },
+    "trackId": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+      "description": "时间轴轨道 id。"
+    },
+    "variableKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+      "description": "变量名（标识符）。保留名 last_minigame_result 由运行时写入小游戏结果，禁止作者当作普通变量初值以外的方式使用。"
+    },
+    "assetPath": {
+      "type": "string",
+      "pattern": "^(?!.*\\.\\.)assets/[A-Za-z0-9._/-]+$",
+      "description": "素材相对路径，必须位于项目 assets/ 目录下，使用 / 分隔，禁止 .. 逃逸。"
+    },
+    "sourcePath": {
+      "type": "string",
+      "pattern": "^(?!.*\\.\\.)assets/\\.source/[A-Za-z0-9._/-]+$",
+      "description": "原始导入文件路径（只读，不参与导出）。固定位于 assets/.source/ 下，供二次编辑时重新烘焙。"
+    },
+    "assetSource": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "path",
+            "format"
+          ],
+          "additionalProperties": false,
+          "description": "原始文件：图片的原始位图 / 音频的原始音频。编辑参数（crop、trim、gainDb 等）始终相对它计算，保证可重复编辑。",
+          "properties": {
+            "path": {
+              "$ref": "#/$defs/sourcePath"
+            },
+            "format": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16,
+              "description": "原始文件扩展名（png/webp/jpg/wav/mp3/ogg 等，不受最终格式限制）。"
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sizeBytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "minigamePath": {
+      "type": "string",
+      "pattern": "^(?!.*\\.\\.)assets/[A-Za-z0-9._/-]+\\.html$",
+      "description": "小游戏入口 HTML 路径，必须是 assets/ 下的 .html 文件。"
+    },
+    "meta": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false,
+      "description": "项目元信息（编辑与展示用，运行时不影响流程）。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/projectId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "项目内容版本（作者维护），区别于 schemaVersion。"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "required": [
+        "startNodeId",
+        "resolution",
+        "backgroundColor",
+        "textSpeedCps"
+      ],
+      "additionalProperties": false,
+      "description": "项目级运行设置。运行时从这里取画布尺寸、起始节点等。",
+      "properties": {
+        "startNodeId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/nodeId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "游戏开始节点。为 null 时导出校验应报错（编辑器新建项目后必须先指认入口）。"
+        },
+        "resolution": {
+          "type": "object",
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false,
+          "description": "运行时画布分辨率（编辑器也按此比例预览）。",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 320,
+              "maximum": 7680
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 240,
+              "maximum": 4320
+            }
+          }
+        },
+        "backgroundColor": {
+          "$ref": "#/$defs/color",
+          "description": "舞台底色（没有背景图时可见）。"
+        },
+        "textSpeedCps": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "默认文字速度，单位：字/秒；0 表示瞬显。单条对话可用 dialogue.speedCps 覆盖。"
+        },
+        "autoSave": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "自动存档设置。自动存档使用独立槽位（存档文件 saves/auto.json）。",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "onSceneEnter": {
+              "type": "boolean",
+              "description": "进入场景节点时自动存档。"
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "运行时行为开关（第一版只做阻塞式小游戏，无额外配置项时按默认值）。",
+          "properties": {
+            "allowSkipUnread": {
+              "type": "boolean"
+            },
+            "defaultMinigameTimeoutMs": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 600000
+            }
+          }
+        },
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+          "description": "界面语言提示，如 zh-CN。"
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "required": [
+        "images",
+        "audio",
+        "videos",
+        "minigames"
+      ],
+      "additionalProperties": false,
+      "description": "素材库。按类型分表；素材 id 全库唯一。图片用 role 区分背景 / 立绘，决定拖拽到蓝图时的默认行为。",
+      "properties": {
+        "images": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/imageAsset"
+          }
+        },
+        "audio": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/audioAsset"
+          }
+        },
+        "videos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/videoAsset"
+          }
+        },
+        "minigames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/minigameAsset"
+          }
+        }
+      }
+    },
+    "imageAsset": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "role",
+        "path",
+        "width",
+        "height",
+        "format"
+      ],
+      "additionalProperties": false,
+      "description": "图片素材。裁剪 / 去背景 / 亮度对比度是导入时的编辑操作，产物直接烘焙进 path 指向的新文件；edit 仅保留参数用于二次调整。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "kind": {
+          "const": "image"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "role": {
+          "enum": [
+            "background",
+            "sprite",
+            "ui",
+            "other"
+          ],
+          "description": "background=背景，sprite=立绘，其余为通用图片。"
+        },
+        "path": {
+          "$ref": "#/$defs/assetPath"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32768
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32768
+        },
+        "format": {
+          "enum": [
+            "png",
+            "webp"
+          ],
+          "description": "图片最终格式只允许 png / webp（符合素材模块“导出 png/webp”的范围）；导入的 jpg 等格式在编辑/保存时转码为 png 或 webp。"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "importedAt": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "edit": {
+          "$ref": "#/$defs/imageEdit"
+        },
+        "source": {
+          "$ref": "#/$defs/assetSource"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "png"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "pattern": "\\.png$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "webp"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "pattern": "\\.webp$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "imageEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "图片编辑参数（不含图层 / 蒙版 / 滤镜链，遵守素材模块范围）。",
+      "properties": {
+        "crop": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "x",
+                "y",
+                "width",
+                "height"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          ],
+          "description": "裁剪框（源图像素），null / 省略表示未裁剪。"
+        },
+        "removeBackground": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "color",
+                "tolerance"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "color": {
+                  "$ref": "#/$defs/color"
+                },
+                "tolerance": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "颜色容差（0–1）；同一颜色距离内的像素变透明。"
+                },
+                "softness": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 20,
+                  "description": "边缘羽化半径（像素）。"
+                }
+              }
+            }
+          ],
+          "description": "去除纯色背景参数。"
+        },
+        "adjustments": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "brightness": {
+                  "type": "number",
+                  "minimum": -100,
+                  "maximum": 100
+                },
+                "contrast": {
+                  "type": "number",
+                  "minimum": -100,
+                  "maximum": 100
+                }
+              }
+            }
+          ],
+          "description": "亮度 / 对比度（-100–100，0 为原图）。不做饱和度 / 滤镜链。"
+        }
+      }
+    },
+    "audioAsset": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "role",
+        "path",
+        "format",
+        "durationMs"
+      ],
+      "additionalProperties": false,
+      "description": "音频素材。截取片段 + 增益同样烘焙进导出文件，trim / gainDb 只作为编辑参数保留。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "kind": {
+          "const": "audio"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "role": {
+          "enum": [
+            "bgm",
+            "sfx",
+            "voice"
+          ],
+          "description": "bgm=背景音乐，sfx=音效，voice=语音。"
+        },
+        "path": {
+          "$ref": "#/$defs/assetPath"
+        },
+        "format": {
+          "enum": [
+            "ogg",
+            "mp3"
+          ],
+          "description": "音频最终格式只允许 ogg / mp3（符合素材模块“导出 ogg/mp3”的范围）；导入的 wav 等格式在编辑/保存时转码。"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "importedAt": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "trim": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "startMs",
+                "endMs"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "startMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endMs": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          ],
+          "description": "截取片段（毫秒，相对源文件）。要求 endMs > startMs，由编辑器校验。"
+        },
+        "gainDb": {
+          "type": "number",
+          "minimum": -60,
+          "maximum": 24,
+          "description": "增益（dB），0 为原始音量。"
+        },
+        "loop": {
+          "type": "boolean",
+          "description": "素材默认是否循环；场景节点的 audio.loop 优先。"
+        },
+        "source": {
+          "$ref": "#/$defs/assetSource"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "ogg"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "pattern": "\\.ogg$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "mp3"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "pattern": "\\.mp3$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "videoAsset": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "path",
+        "format"
+      ],
+      "additionalProperties": false,
+      "description": "视频素材。导入时校验容器/编码（mp4: h264、webm: vp8/vp9），不支持时提示转码。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "kind": {
+          "const": "video"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "path": {
+          "$ref": "#/$defs/assetPath"
+        },
+        "format": {
+          "enum": [
+            "mp4",
+            "webm"
+          ]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "codec": {
+          "enum": [
+            "h264",
+            "vp8",
+            "vp9"
+          ],
+          "description": "第一版只支持 mp4=h264、webm=vp8/vp9；其他编码导入时提示转码。"
+        },
+        "hasAudio": {
+          "type": "boolean"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "importedAt": {
+          "$ref": "#/$defs/isoDateTime"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "mp4"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "pattern": "\\.mp4$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "webm"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "pattern": "\\.webm$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "minigameAsset": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "path",
+        "declaredExits"
+      ],
+      "additionalProperties": false,
+      "description": "小游戏素材（自包含 HTML5）。declaredExits 必须来自小游戏文件的 window.MINIGAME_EXITS；导入时缺该数组直接拒绝。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/assetId"
+        },
+        "kind": {
+          "const": "minigame"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "path": {
+          "$ref": "#/$defs/minigamePath"
+        },
+        "declaredExits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": "小游戏声明的出口字符串列表，来自 window.MINIGAME_EXITS。"
+        },
+        "mode": {
+          "const": "blocking",
+          "description": "第一版仅阻塞式小游戏。"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "importedAt": {
+          "$ref": "#/$defs/isoDateTime"
+        }
+      }
+    },
+    "exit": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "命名出口。选项节点中 name 为选项文本；小游戏节点中 name 为上报 result 的精确匹配串；连线使用 id（edge.port）。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/exitId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "可选显示别名（编辑器 / 运行时展示用）；不参与小游戏结果匹配与连线，匹配仍用 name。"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "fixedExitNext": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "next"
+        },
+        "name": {
+          "const": "next"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "可选显示别名；固定出口的 id/name 仍不可改。"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "fixedExitTrue": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "true"
+        },
+        "name": {
+          "const": "true"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "可选显示别名；固定出口的 id/name 仍不可改。"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "fixedExitFalse": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "false"
+        },
+        "name": {
+          "const": "false"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "可选显示别名；固定出口的 id/name 仍不可改。"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "fixedExitCompleted": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "completed"
+        },
+        "name": {
+          "const": "completed"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "可选显示别名；固定出口的 id/name 仍不可改。"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "fixedExitSkipped": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "const": "skipped"
+        },
+        "name": {
+          "const": "skipped"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "可选显示别名；固定出口的 id/name 仍不可改。"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "graphPoint": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false,
+      "description": "蓝图节点画布坐标（像素，编辑器专用），运行时忽略。注意：它与舞台 0–1 归一化坐标是两套坐标系。",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "typedValue": {
+      "description": "带类型标签的变量值联合类型。第一版 array / object 的内部结构不做递归类型标签，直接存 JSON 值。",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "number"
+            },
+            "value": {
+              "type": "number"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "array"
+            },
+            "value": {
+              "type": "array"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "object"
+            },
+            "value": {
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "null"
+            },
+            "value": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "variableMap": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/variableKey"
+      },
+      "properties": {
+        "last_minigame_result": {
+          "type": "object",
+          "required": [
+            "type",
+            "value"
+          ],
+          "additionalProperties": false,
+          "description": "保留变量：最近一次小游戏上报的字符串结果。运行时写入，类型锁定为 string。",
+          "properties": {
+            "type": {
+              "const": "string"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/typedValue"
+      },
+      "description": "变量表：变量名 -> 带类型标签的值。值为变量快照，存档也复用本结构。last_minigame_result 为运行时保留变量，只允许 string。"
+    },
+    "portraitRef": {
+      "type": "object",
+      "required": [
+        "assetId"
+      ],
+      "additionalProperties": false,
+      "description": "对话节点上的立绘引用（可选）。x / y / scale 使用舞台 0–1 相对坐标规则。",
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "expression": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "表情标签（仅编辑器分组用，运行时按 assetId 显示）。"
+        },
+        "x": {
+          "$ref": "#/$defs/normalizedCoord"
+        },
+        "y": {
+          "$ref": "#/$defs/normalizedCoord"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 10
+        }
+      }
+    },
+    "voiceRef": {
+      "type": "object",
+      "required": [
+        "assetId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "volume": {
+          "$ref": "#/$defs/opacity"
+        }
+      }
+    },
+    "sceneBackground": {
+      "type": "object",
+      "required": [
+        "assetId",
+        "fit",
+        "x",
+        "y",
+        "scale",
+        "opacity"
+      ],
+      "additionalProperties": false,
+      "description": "场景静态背景配置，是时间轴 background 轨道的基线值。x/y 为背景中心点的归一化位置。",
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "fit": {
+          "enum": [
+            "cover",
+            "contain",
+            "stretch"
+          ]
+        },
+        "x": {
+          "$ref": "#/$defs/normalizedCoord"
+        },
+        "y": {
+          "$ref": "#/$defs/normalizedCoord"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 10
+        },
+        "opacity": {
+          "$ref": "#/$defs/opacity"
+        }
+      }
+    },
+    "sprite": {
+      "type": "object",
+      "required": [
+        "id",
+        "assetId",
+        "x",
+        "y",
+        "scale",
+        "zIndex",
+        "opacity"
+      ],
+      "additionalProperties": false,
+      "description": "场景立绘条目。id 是场景内实例 id，时间轴 sprite 轨道用它作为 target。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/instanceId"
+        },
+        "assetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "x": {
+          "$ref": "#/$defs/normalizedCoord",
+          "description": "立绘中心点的归一化 x 位置（0=舞台左边缘，1=右边缘）。"
+        },
+        "y": {
+          "$ref": "#/$defs/normalizedCoord",
+          "description": "立绘中心点的归一化 y 位置。"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 10,
+          "description": "相对缩放，1 为运行时基准尺寸（以舞台高度为参照）。"
+        },
+        "zIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "层级，数值越大越靠上。"
+        },
+        "opacity": {
+          "$ref": "#/$defs/opacity"
+        }
+      }
+    },
+    "textbox": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "fontSizePx",
+        "color",
+        "background",
+        "backgroundOpacity",
+        "opacity"
+      ],
+      "additionalProperties": false,
+      "description": "场景文本框样式，是时间轴 textbox 轨道的基线值。x/y 为文本框中心点的归一化位置，width/height 为归一化尺寸。",
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/normalizedCoord"
+        },
+        "y": {
+          "$ref": "#/$defs/normalizedCoord"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 1
+        },
+        "fontSizePx": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 200
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "background": {
+          "$ref": "#/$defs/color"
+        },
+        "backgroundOpacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "opacity": {
+          "$ref": "#/$defs/opacity"
+        },
+        "paddingPx": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200
+        }
+      }
+    },
+    "sfxRef": {
+      "type": "object",
+      "required": [
+        "assetId"
+      ],
+      "additionalProperties": false,
+      "description": "场景音效引用：进入场景时播放（runtime 阶段实现）；role 应为 sfx。",
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "volume": {
+          "$ref": "#/$defs/opacity"
+        },
+        "loop": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sceneAudio": {
+      "type": "object",
+      "required": [
+        "bgmAssetId",
+        "volume",
+        "loop"
+      ],
+      "additionalProperties": false,
+      "description": "场景背景音乐配置。bgmAssetId 必须指向 role=bgm 的音频素材；声音轨（audio）时间轴覆盖 volume。",
+      "properties": {
+        "bgmAssetId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/assetId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volume": {
+          "$ref": "#/$defs/opacity"
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "fadeInMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "sfx": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/sfxRef"
+          },
+          "description": "进入场景时播放的音效列表（可空；第一版运行时只支持一次性播放）。"
+        }
+      }
+    },
+    "sceneVariable": {
+      "type": "object",
+      "required": [
+        "key",
+        "value"
+      ],
+      "additionalProperties": false,
+      "description": "场景变量声明：进入场景时若全局变量表尚无此键，则按类型标签与值初始化；已有值不覆盖。运行时修改变量仍只能通过变量操作节点。",
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/variableKey"
+        },
+        "value": {
+          "$ref": "#/$defs/typedValue"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "dialogueNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "对话节点：显示一条台词后沿 next 出口继续。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "dialogue"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/fixedExitNext"
+            }
+          ],
+          "items": false
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "speaker": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "portrait": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/portraitRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "voice": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/voiceRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "speedCps": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "覆盖项目默认文字速度（字/秒），0 为瞬显。"
+        },
+        "autoAdvanceMs": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 600000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "自动前进等待时长；null 表示必须玩家点击。"
+        }
+      }
+    },
+    "sceneNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "background",
+        "sprites",
+        "textbox",
+        "audio",
+        "variables"
+      ],
+      "additionalProperties": false,
+      "description": "场景节点：布置舞台（背景 / 立绘 / 文本框 / BGM / 场景变量），沿 next 出口继续。时间轴按场景节点 id 挂载在顶层 timelines。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "scene"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/fixedExitNext"
+            }
+          ],
+          "items": false
+        },
+        "background": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sceneBackground"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sprites": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/sprite"
+          }
+        },
+        "uiImages": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/sprite"
+          },
+          "description": "可选的 UI 图片层（复用立绘条目形状），assetId 应指向 role=ui 的图片素材；用于血条、遮罩、装饰等。"
+        },
+        "textbox": {
+          "$ref": "#/$defs/textbox"
+        },
+        "audio": {
+          "$ref": "#/$defs/sceneAudio"
+        },
+        "variables": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/sceneVariable"
+          }
+        }
+      }
+    },
+    "choiceNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits"
+      ],
+      "additionalProperties": false,
+      "description": "选项节点：每个出口就是一个选项，出口 name 即选项文本，edge.port 指向出口 id。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "choice"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "选项提示语（可选）。"
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/exit"
+          }
+        }
+      }
+    },
+    "minigameNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "minigameAssetId",
+        "defaultExitId"
+      ],
+      "additionalProperties": false,
+      "description": "小游戏节点：阻塞式播放，收到 postMessage 结果后按出口 name 精确匹配；无匹配时走 defaultExitId，再没有则运行时报错。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "minigame"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "minigameAssetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/exit"
+          },
+          "description": "作者配置的出口字符串列表（name 即结果串）；初始默认 win / lose，可增删改名。"
+        },
+        "defaultExitId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/exitId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "结果无匹配时使用的出口 id；null 表示无兜底（运行时 console.warn 并停留在小游戏前）。"
+        },
+        "timeoutMs": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 600000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "超时保护；超时视为无匹配结果。"
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "给玩家的小游戏说明（显示在 iframe 上方）。"
+        }
+      }
+    },
+    "videoNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "videoAssetId"
+      ],
+      "additionalProperties": false,
+      "description": "视频节点：独立 VideoPlayer 播放，出口固定 completed / skipped。播放时暂停 BGM，结束恢复。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "video"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "videoAssetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/fixedExitCompleted"
+              },
+              {
+                "$ref": "#/$defs/fixedExitSkipped"
+              }
+            ]
+          },
+          "allOf": [
+            {
+              "contains": {
+                "$ref": "#/$defs/fixedExitCompleted"
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "$ref": "#/$defs/fixedExitSkipped"
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ],
+          "description": "completed / skipped 各恰好一个，顺序不敏感。"
+        },
+        "volume": {
+          "$ref": "#/$defs/opacity"
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "showSkipButton": {
+          "type": "boolean",
+          "description": "右上角跳过按钮是否显示。"
+        },
+        "skipAfterMs": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 600000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "播放多久后允许跳过；null / 省略表示立即可见（仍受 showSkipButton 控制）。"
+        }
+      }
+    },
+    "jumpNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "targetNodeId"
+      ],
+      "additionalProperties": false,
+      "description": "跳转节点：无出口、无可见画面，直接把控制权交给目标节点（用于循环 / 回跳）。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "jump"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "exits": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "targetNodeId": {
+          "$ref": "#/$defs/nodeId"
+        }
+      }
+    },
+    "conditionNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "expression"
+      ],
+      "additionalProperties": false,
+      "description": "条件节点：白名单表达式求值，true / false 两个固定出口。求值失败按 false 处理并 console.warn。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "condition"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "白名单表达式，语法见 FIELDS.md 附录；禁止 eval / Function / 任意属性与函数访问。"
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/fixedExitTrue"
+              },
+              {
+                "$ref": "#/$defs/fixedExitFalse"
+              }
+            ]
+          },
+          "allOf": [
+            {
+              "contains": {
+                "$ref": "#/$defs/fixedExitTrue"
+              },
+              "minContains": 1,
+              "maxContains": 1
+            },
+            {
+              "contains": {
+                "$ref": "#/$defs/fixedExitFalse"
+              },
+              "minContains": 1,
+              "maxContains": 1
+            }
+          ],
+          "description": "true / false 各恰好一个，顺序不敏感。"
+        }
+      }
+    },
+    "variableNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "name",
+        "position",
+        "exits",
+        "assignments"
+      ],
+      "additionalProperties": false,
+      "description": "变量操作节点：唯一允许修改运行时变量的节点类型；小游戏不得直接改变量。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "type": {
+          "const": "variable"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "position": {
+          "$ref": "#/$defs/graphPoint"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "exits": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/fixedExitNext"
+            }
+          ],
+          "items": false
+        },
+        "assignments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/assignment"
+          }
+        }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "required": [
+        "key",
+        "op"
+      ],
+      "additionalProperties": false,
+      "description": "单条变量操作。set/add/subtract/push 必须带 value，toggle 不得带 value。",
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/variableKey"
+        },
+        "op": {
+          "enum": [
+            "set",
+            "add",
+            "subtract",
+            "toggle",
+            "push"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/typedValue"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "set",
+                  "add",
+                  "subtract",
+                  "push"
+                ]
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "toggle"
+              }
+            },
+            "required": [
+              "op"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "node": {
+      "description": "蓝图节点联合类型，按 type 区分。所有节点都有统一出口数组 exits。",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/dialogueNode"
+        },
+        {
+          "$ref": "#/$defs/sceneNode"
+        },
+        {
+          "$ref": "#/$defs/choiceNode"
+        },
+        {
+          "$ref": "#/$defs/minigameNode"
+        },
+        {
+          "$ref": "#/$defs/videoNode"
+        },
+        {
+          "$ref": "#/$defs/jumpNode"
+        },
+        {
+          "$ref": "#/$defs/conditionNode"
+        },
+        {
+          "$ref": "#/$defs/variableNode"
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "id",
+        "from",
+        "port",
+        "to",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "统一连线：语义靠 kind 区分。sequence=普通流程推进，conditional=条件分支，data=数据流（第一版仅在 schema 预留，不实现连线 UI）。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/edgeId"
+        },
+        "from": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "port": {
+          "$ref": "#/$defs/exitId",
+          "description": "源节点的出口 id（不是显示名）。"
+        },
+        "to": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "kind": {
+          "enum": [
+            "sequence",
+            "conditional",
+            "data"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "data 连线预留字段，例如 { fromProperty, toProperty, valueType }；第一版运行时忽略。"
+        }
+      }
+    },
+    "bezierPoint": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "x 必须落在 0–1，才能保证 cubic-bezier 是时间函数。"
+        },
+        {
+          "type": "number",
+          "description": "y 允许超出 0–1（回弹 / 超调）。"
+        }
+      ],
+      "items": false,
+      "description": "贝塞尔控制点 [x, y]。"
+    },
+    "easing": {
+      "type": "object",
+      "required": [
+        "type",
+        "p1",
+        "p2"
+      ],
+      "additionalProperties": false,
+      "description": "统一贝塞尔缓动。运行时不识别预设名，只做 cubic-bezier(p1, p2) 求值；linear = p1 [0,0], p2 [1,1]。",
+      "properties": {
+        "type": {
+          "const": "bezier"
+        },
+        "p1": {
+          "$ref": "#/$defs/bezierPoint"
+        },
+        "p2": {
+          "$ref": "#/$defs/bezierPoint"
+        }
+      }
+    },
+    "keyframe": {
+      "type": "object",
+      "required": [
+        "time",
+        "value",
+        "easing"
+      ],
+      "additionalProperties": false,
+      "description": "关键帧：time 为场景内绝对毫秒，value 为数值（颜色等非数值属性第一版不参与时间轴），easing 为从前一关键帧到本帧的缓动（首个关键帧也必须写，习惯填 linear）。",
+      "properties": {
+        "time": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "value": {
+          "type": "number"
+        },
+        "easing": {
+          "$ref": "#/$defs/easing"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 80
+        }
+      }
+    },
+    "spriteTrack": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "target",
+        "property",
+        "keys"
+      ],
+      "additionalProperties": false,
+      "description": "立绘轨道：target 为场景 sprites[].id。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/trackId"
+        },
+        "kind": {
+          "const": "sprite"
+        },
+        "target": {
+          "$ref": "#/$defs/instanceId"
+        },
+        "property": {
+          "enum": [
+            "x",
+            "y",
+            "scale",
+            "opacity"
+          ]
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keyframe"
+          }
+        }
+      }
+    },
+    "backgroundTrack": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "property",
+        "keys"
+      ],
+      "additionalProperties": false,
+      "description": "背景轨道：作用于场景 background 静态值。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/trackId"
+        },
+        "kind": {
+          "const": "background"
+        },
+        "property": {
+          "enum": [
+            "x",
+            "y",
+            "scale",
+            "opacity"
+          ]
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keyframe"
+          }
+        }
+      }
+    },
+    "audioTrack": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "property",
+        "keys"
+      ],
+      "additionalProperties": false,
+      "description": "音频轨道：作用于场景 BGM 音量。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/trackId"
+        },
+        "kind": {
+          "const": "audio"
+        },
+        "property": {
+          "const": "volume"
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keyframe"
+          }
+        }
+      }
+    },
+    "textboxTrack": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "property",
+        "keys"
+      ],
+      "additionalProperties": false,
+      "description": "文本框轨道：作用于场景 textbox 静态值。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/trackId"
+        },
+        "kind": {
+          "const": "textbox"
+        },
+        "property": {
+          "enum": [
+            "x",
+            "y",
+            "width",
+            "height",
+            "opacity",
+            "fontSizePx",
+            "backgroundOpacity"
+          ]
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keyframe"
+          }
+        }
+      }
+    },
+    "track": {
+      "description": "时间轴轨道联合类型，仅作用于当前场景节点内部。",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/spriteTrack"
+        },
+        {
+          "$ref": "#/$defs/backgroundTrack"
+        },
+        {
+          "$ref": "#/$defs/audioTrack"
+        },
+        {
+          "$ref": "#/$defs/textboxTrack"
+        }
+      ]
+    },
+    "timeline": {
+      "type": "object",
+      "required": [
+        "durationMs",
+        "tracks"
+      ],
+      "additionalProperties": false,
+      "description": "场景节点内部时间轴。关键帧覆盖同属性蓝图静态值；未覆盖属性沿用蓝图配置。",
+      "properties": {
+        "durationMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 600000
+        },
+        "loop": {
+          "type": "boolean",
+          "description": "true 时时间轴循环播放直到离开场景；false 时停在末帧。默认 false。"
+        },
+        "tracks": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/track"
+          }
+        }
+      }
+    },
+    "timelineMap": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/nodeId"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/timeline"
+      },
+      "description": "键为场景节点 id。只有 type=scene 的节点可以拥有时间轴。"
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "编辑器布局状态（持久化进项目文件；运行时忽略）。宽度单位像素。",
+      "properties": {
+        "leftWidth": {
+          "type": "number",
+          "minimum": 200,
+          "maximum": 480,
+          "description": "左栏宽度，默认 280。"
+        },
+        "rightWidth": {
+          "type": "number",
+          "minimum": 240,
+          "maximum": 560,
+          "description": "右栏宽度，默认 320。"
+        },
+        "timelineHeight": {
+          "type": "number",
+          "minimum": 120,
+          "maximum": 600,
+          "description": "时间轴高度，默认 200。"
+        },
+        "rightCollapsed": {
+          "type": "boolean"
+        },
+        "leftBottomPanel": {
+          "enum": [
+            "variables",
+            "structure",
+            "minigameExits"
+          ],
+          "description": "左栏下方面板三选一，默认 variables。"
+        },
+        "assetView": {
+          "enum": [
+            "list",
+            "grid"
+          ]
+        },
+        "assetTypeFilter": {
+          "enum": [
+            "all",
+            "image",
+            "audio",
+            "video",
+            "minigame"
+          ]
+        }
+      }
+    },
+    "editorState": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "编辑器会话状态（持久化进项目文件；运行时忽略）。",
+      "properties": {
+        "viewport": {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "zoom"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "zoom": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 4
+            }
+          }
+        },
+        "selectedNodeIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nodeId"
+          }
+        },
+        "selectedEdgeId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/edgeId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selectedAssetId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/assetId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "activeTab": {
+          "enum": [
+            "blueprint",
+            "preview"
+          ]
+        },
+        "timelinePlayheadMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "saveState": {
+      "type": "object",
+      "required": [
+        "version",
+        "kind",
+        "slot",
+        "savedAt",
+        "projectId",
+        "schemaVersion",
+        "nodeId",
+        "variables",
+        "timeline",
+        "playtimeMs"
+      ],
+      "additionalProperties": false,
+      "description": "单个存档槽的内容（saves/slot_N.json / saves/auto.json / saves/quick.json）。Electron 写文件，Web 预览写 IndexedDB；字段结构相同。",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "kind": {
+          "enum": [
+            "manual",
+            "auto",
+            "quick"
+          ]
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999,
+          "description": "手动槽位号 1–999；auto / quick 固定为 0。"
+        },
+        "savedAt": {
+          "$ref": "#/$defs/isoDateTime"
+        },
+        "projectId": {
+          "$ref": "#/$defs/projectId"
+        },
+        "projectTitle": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "可选槽位备注，如“第二章分歧点”。"
+        },
+        "nodeId": {
+          "$ref": "#/$defs/nodeId",
+          "description": "当前所在的蓝图节点 id。"
+        },
+        "variables": {
+          "$ref": "#/$defs/variableMap",
+          "description": "变量快照（含 last_minigame_result）。"
+        },
+        "timeline": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "nodeId",
+                "timeMs"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "nodeId": {
+                  "$ref": "#/$defs/nodeId",
+                  "description": "时间轴所属场景节点。"
+                },
+                "timeMs": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          ],
+          "description": "场景时间轴播放进度；不在场景内或没有时间轴时为 null。"
+        },
+        "thumbnailDataUrl": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^data:image/(png|webp|jpeg);base64,[A-Za-z0-9+/=]+$"
+            }
+          ],
+          "description": "存档缩略图（内嵌 data URL，便于 Electron 与 Web 共用）。"
+        },
+        "playtimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "累计游玩时长（毫秒）。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "manual"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "slot": {
+                "minimum": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "slot": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

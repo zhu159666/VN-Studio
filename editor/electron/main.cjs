@@ -1,0 +1,234 @@
+'use strict';
+
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { app, BrowserWindow, Menu, net, protocol } = require('electron');
+
+const paths = require('./lib/paths.cjs');
+const ipc = require('./lib/ipc.cjs');
+const smoke = require('./lib/smoke.cjs');
+
+const MIME_BY_EXT = {
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.html': 'text/html; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+};
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'vnasset',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+    },
+  },
+]);
+
+const isDev = process.argv.includes('--dev');
+const isSmoke = process.argv.includes('--smoke-test');
+let mainWindow = null;
+let smokeProject = null;
+let smokeFailed = false;
+
+function registerAssetProtocol() {
+  protocol.handle('vnasset', async (request) => {
+    try {
+      const url = new URL(request.url);
+      const relative = decodeURIComponent(url.pathname.replace(/^\//, ''));
+      const projectDir = ipc.getCurrentProjectDir();
+      if (!projectDir) return new Response('no project opened', { status: 404 });
+      const abs = paths.resolveInside(projectDir, relative);
+      if (!fs.existsSync(abs)) return new Response('asset not found', { status: 404 });
+      const upstream = await net.fetch(pathToFileURL(abs).toString(), {
+        headers: request.headers,
+      });
+      const headers = new Headers(upstream.headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Cache-Control', 'no-store');
+      if (!headers.get('Content-Type')) {
+        headers.set('Content-Type', MIME_BY_EXT[path.extname(abs).toLowerCase()] || 'application/octet-stream');
+      }
+      return new Response(upstream.body, { status: upstream.status, headers });
+    } catch (error) {
+      console.warn('[vnasset]', error.message);
+      return new Response('asset error', { status: 400 });
+    }
+  });
+}
+
+function createMainWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1080,
+    minHeight: 680,
+    show: false,
+    backgroundColor: '#0f1216',
+    title: 'VN Studio',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: paths.preloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false,
+    },
+  });
+
+  win.once('ready-to-show', () => win.show());
+  win.webContents.on('console-message', (_event, level, message) => {
+    if (isDev || isSmoke) console.log(`[renderer:${level}] ${message}`);
+  });
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[renderer] gone:', details);
+    smokeFailed = true;
+  });
+  win.webContents.on('did-fail-load', (_event, code, description) => {
+    console.error('[renderer] did-fail-load', code, description);
+    smokeFailed = true;
+  });
+  win.on('closed', () => {
+    mainWindow = null;
+  });
+
+  if (isDev) {
+    win.loadURL('http://localhost:5173');
+    if (process.argv.includes('--devtools')) win.webContents.openDevTools({ mode: 'detach' });
+  } else {
+    const index = paths.editorDistIndex();
+    if (!fs.existsSync(index)) {
+      win.loadURL(
+        `data:text/html;charset=utf-8,${encodeURIComponent(
+          '<body style="background:#101418;color:#e7edf3;font-family:sans-serif;padding:40px"><h2>尚未构建渲染层</h2><p>请先在 editor/ 目录运行 <code>pnpm build</code>，或使用 <code>pnpm dev:electron --dev</code> 配合 Vite。</p></body>',
+        )}`,
+      );
+    } else {
+      win.loadFile(index);
+    }
+  }
+  return win;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function capture(win, name) {
+  const dir = path.join(paths.repoRoot(), 'editor', '.smoke');
+  await fsp.mkdir(dir, { recursive: true });
+  const image = await win.webContents.capturePage();
+  const file = path.join(dir, name);
+  await fsp.writeFile(file, image.toPNG());
+  console.log(`[smoke] 截图：${file}`);
+}
+
+async function runSmokeFlow(win, data) {
+  try {
+    await wait(1800);
+    await capture(win, 'start.png');
+
+    win.webContents.send('smoke:load-project', {
+      project: data.project,
+      projectPath: data.projectPath,
+      projectDir: data.projectDir,
+    });
+    await wait(2200);
+    await capture(win, 'workspace.png');
+
+    const order = [
+      ['image', 'asset-image.png'],
+      ['audio', 'asset-audio.png'],
+      ['video', 'asset-video.png'],
+      ['minigame', 'asset-minigame.png'],
+    ];
+    for (const [kind, fileName] of order) {
+      const assetId = data.assetIds?.[kind];
+      if (!assetId) continue;
+      win.webContents.send('smoke:select-asset', assetId);
+      await wait(1800);
+      await capture(win, fileName);
+    }
+
+    if (smokeFailed) {
+      console.error('[smoke] 渲染进程出现错误，截图可能不完整');
+    }
+    console.log('[smoke] 完成');
+    await wait(300);
+    if (data.tempRoot) {
+      await fsp.rm(data.tempRoot, { recursive: true, force: true }).catch(() => {});
+    }
+    app.exit(smokeFailed ? 1 : 0);
+  } catch (error) {
+    console.error('[smoke] 失败：', error);
+    app.exit(1);
+  }
+}
+
+async function start() {
+  await app.whenReady();
+  Menu.setApplicationMenu(null);
+
+  if (isSmoke) {
+    try {
+      smokeProject = await smoke.createSmokeProject();
+      if (smokeProject.warnings?.length) {
+        console.warn('[smoke] 警告：', smokeProject.warnings.join('；'));
+      }
+    } catch (error) {
+      console.error('[smoke] 生成临时项目失败：', error);
+      app.exit(1);
+      return;
+    }
+  }
+
+  registerAssetProtocol();
+  ipc.registerIpc({
+    getWindow: () => mainWindow,
+    smokeStartup: smokeProject
+      ? {
+          project: smokeProject.project,
+          projectPath: smokeProject.projectPath,
+          projectDir: smokeProject.projectDir,
+          assetIds: smokeProject.assetIds,
+        }
+      : null,
+  });
+
+  mainWindow = createMainWindow();
+
+  if (isSmoke) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      runSmokeFlow(mainWindow, smokeProject);
+    });
+  }
+}
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    mainWindow = createMainWindow();
+  }
+});
+
+start().catch((error) => {
+  console.error('[main] 启动失败：', error);
+  app.exit(1);
+});

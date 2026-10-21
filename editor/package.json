@@ -1,0 +1,111 @@
+{
+  "name": "@vn-studio/editor",
+  "private": true,
+  "version": "0.1.0",
+  "description": "VN Studio — 桌面视觉小说创作套件（Electron + React 编辑器与纯浏览器运行时）",
+  "author": "VN Studio Team",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "electron . --dev",
+    "build": "vite build",
+    "start": "electron .",
+    "smoke": "vite build && electron . --smoke-test",
+    "dist": "node ../scripts/prepare-ffmpeg.mjs && vite build && electron-builder --win zip",
+    "dist:zip": "node ../scripts/prepare-ffmpeg.mjs && vite build && electron-builder --win zip",
+    "dist:dir": "node ../scripts/prepare-ffmpeg.mjs && vite build && electron-builder --dir --win",
+    "dist:win": "node ../scripts/prepare-ffmpeg.mjs && vite build && electron-builder --win nsis",
+    "dist:portable": "node ../scripts/prepare-ffmpeg.mjs && vite build && electron-builder --win portable",
+    "dist:msi": "node ../scripts/prepare-ffmpeg.mjs && vite build && electron-builder --win msi",
+    "dist:installer": "node ../scripts/build-installer.mjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.12.0",
+    "ajv": "^8.20.0",
+    "image-size": "^2.0.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "45.0.0-beta.5",
+    "electron-builder": "^26.15.3",
+    "vite": "^8.3.4"
+  },
+  "build": {
+    "appId": "com.vnstudio.desktop",
+    "productName": "VN Studio",
+    "copyright": "Copyright © 2026 VN Studio",
+    "asar": true,
+    "npmRebuild": false,
+    "compression": "normal",
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*",
+          "!CONTRACT-PHASE5.md",
+          "!.*"
+        ]
+      },
+      {
+        "from": "../schema",
+        "to": "schema",
+        "filter": [
+          "schema.json"
+        ]
+      },
+      {
+        "from": "build/ffmpeg.exe",
+        "to": "bin/ffmpeg.exe"
+      },
+      {
+        "from": "build/FFMPEG-NOTICE.txt",
+        "to": "bin/FFMPEG-NOTICE.txt"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "VN-Studio-${version}-${arch}.${ext}"
+    },
+    "msi": {
+      "oneClick": false,
+      "perMachine": false,
+      "artifactName": "VN-Studio-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VN Studio",
+      "artifactName": "VN-Studio-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "VN-Studio-${version}-portable.${ext}"
+    }
+  }
+}
