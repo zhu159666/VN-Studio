@@ -36,6 +36,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 音频导入测试（wav → ogg）需要 ffmpeg，因此先安装并放入 PATH。
+      - name: Install ffmpeg
+        run: choco install ffmpeg -y --no-progress
+
+      # 把真正的静态二进制复制到 editor/build（prepare-ffmpeg.mjs 会直接复用）。
+      - name: Stage bundled ffmpeg
+        run: |
+          New-Item -ItemType Directory -Force editor/build | Out-Null
+          $real = Get-ChildItem C:\ProgramData\chocolatey\lib\ffmpeg -Recurse -Filter ffmpeg.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.Length -gt 20MB } | Select-Object -First 1
+          if (-not $real) { throw '未在 Chocolatey 包中找到 ffmpeg.exe' }
+          Copy-Item $real.FullName editor/build/ffmpeg.exe -Force
+          & editor/build/ffmpeg.exe -version | Select-Object -First 1
+
       # phase7 打包测试要求 editor/dist/index.html 存在。
       - name: Build renderer
         run: pnpm editor:build
@@ -47,19 +61,6 @@ jobs:
         run: |
           pnpm check:schema
           pnpm check:docs
-
-      # 安装 ffmpeg，并把真正的静态二进制复制到 editor/build（prepare-ffmpeg.mjs 会直接复用）。
-      - name: Install ffmpeg
-        run: choco install ffmpeg -y --no-progress
-
-      - name: Stage bundled ffmpeg
-        run: |
-          New-Item -ItemType Directory -Force editor/build | Out-Null
-          $real = Get-ChildItem C:\ProgramData\chocolatey\lib\ffmpeg -Recurse -Filter ffmpeg.exe -ErrorAction SilentlyContinue |
-            Where-Object { $_.Length -gt 20MB } | Select-Object -First 1
-          if (-not $real) { throw '未在 Chocolatey 包中找到 ffmpeg.exe' }
-          Copy-Item $real.FullName editor/build/ffmpeg.exe -Force
-          & editor/build/ffmpeg.exe -version | Select-Object -First 1
 
       - name: Build app and standard NSIS installer
         run: pnpm editor:dist:win
