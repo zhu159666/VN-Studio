@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { appApi, assetsApi, exportApi, projectsApi } from '../api';
 import {
+  commandsToMcpTools as listMcpTools,
+  executeCommand as executeProjectCommand,
+  listCommands as listProjectCommands,
+} from '../commands';
+import {
   addEdgeToProject,
   addNodeExitToProject,
   addNodeToProject,
@@ -363,6 +368,28 @@ export function useProjectControllerState() {
       mutate((p) => updateNodeExitInProject(p, nodeId, exitId, patch)),
     removeNodeExit: (nodeId, exitId) =>
       mutate((p) => removeNodeExitFromProject(p, nodeId, exitId)),
+    // Command bus：给 UI / 未来 MCP 统一的操作入口（纯 JSON 参数 + 结构化结果）
+    executeCommand: (name, params) => {
+      const current = stateRef.current;
+      if (!current.project) {
+        return {
+          ok: false,
+          command: String(name ?? ''),
+          affectedNodeIds: [],
+          affectedTrackIds: [],
+          warnings: [],
+          error: { code: 'E_NO_PROJECT', message: '当前没有打开的项目' },
+        };
+      }
+      const result = executeProjectCommand(current.project, name, params);
+      if (result.ok) {
+        setProject(result.project);
+        setDirty(true);
+      }
+      return result;
+    },
+    listCommands: () => listProjectCommands(),
+    commandsToMcpTools: () => listMcpTools(),
     // 阶段四：场景时间轴
     setTimeline: (sceneNodeId, timeline) =>
       mutate((p) => setTimelineInProject(p, sceneNodeId, timeline)),

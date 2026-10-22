@@ -43,7 +43,7 @@ runtime/                      纯浏览器运行时（原生 ESM + Canvas/DOM）
   runtime.js / storage.js / runtime.css / index.html
   CONTRACT-PHASE5.md
 schema/                       schema.json（66 个 $defs）+ FIELDS.md
-assets/、saves/、examples/、tests/（289 项）
+assets/、saves/、examples/、tests/（296 项）
 scripts/                      schema/文档校验、UI/运行时/导出/桌面冒烟
 ```
 
@@ -96,6 +96,12 @@ scripts/                      schema/文档校验、UI/运行时/导出/桌面�
 - 已验证：两个安装包用 `/S /D=<目录>` 静默安装后，payload 与 `win-unpacked` 逐文件 SHA-256 一致；注册表卸载项与快捷方式正确；卸载程序能完整清理目录、快捷方式和注册表；安装后的 `app.asar` 内 paths/schema/runtime 解析正常。
 - 校验脚本 `pnpm smoke:desktop`：重新构建 → `electron-builder --dir` → 检查 app.asar 大小、`resources/runtime`/`schema` → 用打包 exe 的 `ELECTRON_RUN_AS_NODE` 模式加载 `app.asar` 内 paths/schema/export-web，验证打包态路径与生产依赖。
 
+**阶段八 Command bus（MCP-ready）**：
+- `editor/src/commands/` 是纯逻辑命令总线（不依赖 React / DOM / Electron），为未来把编辑器操作暴露给 MCP / AI 做准备。
+- 优先覆盖四类操作共 **10 个 command**：蓝图节点创建、连线、出口配置（增/改/删/默认出口）、时间轴关键帧（增/改/删 + 删除轨道）。
+- 每个 command 都有 JSON Schema `inputSchema` 与描述；`listCommands()` / `commandsToMcpTools()` 可直接映射成 MCP tools。参数只接受 JSON 可序列化类型，执行返回统一结构：`ok`、`command`、`affectedNodeIds`、`affectedTrackIds`、`warnings`、`data`、`project`（成功时）或 `error.code/message`（失败时，不抛异常）。
+- 编辑器通过 `actions.executeCommand(name, params)` 调用；未来 MCP 可在主进程对 `project.json` 做 headless 执行。详见 [editor/src/commands/README.md](editor/src/commands/README.md)，测试见 `tests/phase8/commands.test.mjs`。
+
 ## 本地运行与验证
 
 ```bash
@@ -117,7 +123,7 @@ pnpm editor:dist:win       # NSIS 安装器（electron-builder 内置目标）
 pnpm editor:installer      # 完整 NSIS 安装包（内置 ffmpeg，推荐；产物 VN-Studio-Setup-<version>-x64.exe）
 
 # 测试与校验
-pnpm test                  # 289 项
+pnpm test                  # 296 项
 pnpm check:schema
 pnpm check:docs
 
@@ -143,7 +149,7 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 
 ## 验收结果
 
-- 全仓 **289 项** Node 测试通过（schema/引用完整性/项目/素材/媒体/IPC/蓝图/时间轴/表达式/引擎/存档/导出校验与导出器/桌面打包路径）。
+- 全仓 **296 项** Node 测试通过（schema/引用完整性/项目/素材/媒体/IPC/蓝图/时间轴/表达式/引擎/存档/导出校验与导出器/桌面打包路径/Command bus）。
 - `pnpm editor:build` 成功；`check:schema` / `check:docs` 通过。
 - 四套 headless 冒烟均通过：编辑器、运行时、导出包；桌面打包冒烟验证 `win-unpacked` 结构、`resources/runtime`/`schema` 与打包态模块加载（零 GUI 启动，因无桌面会话）。
 - 桌面产物：`editor/release/win-unpacked/`、`editor/release/VN-Studio-0.1.0-x64.zip`、`editor/release/VN-Studio-0.1.0-portable.exe`、`editor/release/VN-Studio-Setup-0.1.0.exe`（electron-builder NSIS）、`editor/release/VN-Studio-Setup-0.1.0-x64.exe`（完整环境 NSIS）；两个安装包均已静默安装 + 卸载验证。
