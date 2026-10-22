@@ -314,9 +314,73 @@ export const removeTrackCommand = {
   },
 };
 
+export const setDurationCommand = {
+  name: 'timeline.setDuration',
+  category: 'timeline',
+  title: '设置时间轴时长',
+  description: '设置场景时间轴总时长（ms）；缩短时会拒绝，除非没有关键帧超出新时长。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sceneNodeId', 'durationMs'],
+    properties: {
+      sceneNodeId: { type: 'string', minLength: 1, maxLength: 64 },
+      durationMs: { type: 'integer', minimum: 100, maximum: 600000 },
+    },
+  },
+  run({ project }, params) {
+    const { sceneNode, error } = requireScene(project, params.sceneNodeId);
+    if (error) return error;
+    let timeline = getSceneTimeline(project, sceneNode.id);
+    if (!timeline) timeline = createTimeline(sceneNode.id, params.durationMs);
+    const overflow = timeline.tracks
+      .flatMap((track) => track.keys.map((key) => ({ trackId: track.id, time: key.time })))
+      .find((item) => item.time > params.durationMs);
+    if (overflow) {
+      return fail(
+        'E_DURATION_TOO_SMALL',
+        `轨道 ${overflow.trackId} 在 ${overflow.time}ms 仍有关键帧，不能把时长缩短到 ${params.durationMs}ms`,
+      );
+    }
+    return success({
+      project: withTimeline(project, sceneNode.id, { ...timeline, durationMs: params.durationMs }),
+      affectedNodeIds: [sceneNode.id],
+      data: { durationMs: params.durationMs },
+    });
+  },
+};
+
+export const setLoopCommand = {
+  name: 'timeline.setLoop',
+  category: 'timeline',
+  title: '设置时间轴循环',
+  description: '设置场景时间轴是否循环播放（timeline.loop）。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['sceneNodeId', 'loop'],
+    properties: {
+      sceneNodeId: { type: 'string', minLength: 1, maxLength: 64 },
+      loop: { type: 'boolean' },
+    },
+  },
+  run({ project }, params) {
+    const { sceneNode, error } = requireScene(project, params.sceneNodeId);
+    if (error) return error;
+    const timeline = getSceneTimeline(project, sceneNode.id) ?? createTimeline(sceneNode.id);
+    return success({
+      project: withTimeline(project, sceneNode.id, { ...timeline, loop: params.loop }),
+      affectedNodeIds: [sceneNode.id],
+      data: { loop: params.loop },
+    });
+  },
+};
+
 export const TIMELINE_COMMANDS = [
   addKeyframeCommand,
   updateKeyframeCommand,
   removeKeyframeCommand,
   removeTrackCommand,
+  setDurationCommand,
+  setLoopCommand,
 ];

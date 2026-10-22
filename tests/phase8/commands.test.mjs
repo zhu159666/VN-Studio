@@ -86,7 +86,7 @@ function getNode(project, nodeId) {
 test('command 描述可 JSON 序列化，并可直接映射为 MCP tools', () => {
   const commands = listCommands();
   assert.equal(commands.length, COMMAND_NAMES.length);
-  assert.equal(commands.length, 10);
+  assert.equal(commands.length, 16);
   assert.deepEqual(new Set(COMMAND_NAMES), new Set(commands.map((item) => item.name)));
   for (const command of commands) {
     assert.ok(command.name.includes('.'), `command 名应带分类前缀：${command.name}`);
@@ -478,6 +478,132 @@ test('timeline：自动建时间轴/轨道，增改删关键帧与轨道', () =>
     ),
     false,
   );
+});
+
+test('新增 command：删节点/删连线/开始节点/对话内容/时间轴时长与循环', () => {
+  let dial = createNode(fixtureProject(), 'dialogue');
+  const dialogueId = dial.affectedNodeIds[0];
+  const choice = createNode(dial.project, 'choice');
+  const choiceId = choice.affectedNodeIds[0];
+  let project = choice.project;
+
+  project = expectOk(
+    executeCommand(project, 'blueprint.setStartNode', { nodeId: dialogueId }),
+    '设置开始节点',
+  ).project;
+  assert.equal(project.settings.startNodeId, dialogueId);
+  assert.equal(
+    executeCommand(project, 'blueprint.setStartNode', { nodeId: 'n_missing' }).error.code,
+    'E_NODE_NOT_FOUND',
+  );
+
+  project = expectOk(
+    executeCommand(project, 'blueprint.updateDialogue', {
+      nodeId: dialogueId,
+      text: '新的台词',
+      speaker: '旁白',
+      portraitAssetId: 'img_sp',
+      voiceAssetId: 'aud_bgm',
+      speedCps: 30,
+      autoAdvanceMs: 1200,
+    }),
+    '修改对话',
+  ).project;
+  assert.equal(getNode(project, dialogueId).text, '新的台词');
+  assert.equal(getNode(project, dialogueId).speaker, '旁白');
+  assert.deepEqual(getNode(project, dialogueId).portrait, { assetId: 'img_sp' });
+  assert.deepEqual(getNode(project, dialogueId).voice, { assetId: 'aud_bgm' });
+  project = expectOk(
+    executeCommand(project, 'blueprint.updateDialogue', {
+      nodeId: dialogueId,
+      speaker: null,
+      portraitAssetId: null,
+      voiceAssetId: null,
+    }),
+    '清空对话字段',
+  ).project;
+  assert.equal(getNode(project, dialogueId).speaker, null);
+  assert.equal(getNode(project, dialogueId).portrait, null);
+  assert.equal(getNode(project, dialogueId).voice, null);
+  assert.equal(
+    executeCommand(project, 'blueprint.updateDialogue', { nodeId: choiceId, text: 'x' }).error.code,
+    'E_INVALID_NODE_TYPE',
+  );
+
+  const connected = expectOk(
+    executeCommand(project, 'blueprint.connect', {
+      fromNodeId: dialogueId,
+      fromExitId: 'next',
+      toNodeId: choiceId,
+    }),
+    '连线',
+  );
+  project = connected.project;
+  const edgeId = connected.data.edge.id;
+  project = expectOk(executeCommand(project, 'blueprint.removeEdge', { edgeId }), '删除连线').project;
+  assert.equal(project.edges.length, 0);
+  assert.equal(executeCommand(project, 'blueprint.removeEdge', { edgeId }).error.code, 'E_EDGE_NOT_FOUND');
+
+  project = expectOk(
+    executeCommand(project, 'blueprint.connect', {
+      fromNodeId: dialogueId,
+      fromExitId: 'next',
+      toNodeId: choiceId,
+    }),
+    '再次连线',
+  ).project;
+  project = expectOk(
+    executeCommand(project, 'blueprint.setStartNode', { nodeId: dialogueId }),
+    '再次设置开始',
+  ).project;
+  const deleted = expectOk(
+    executeCommand(project, 'blueprint.deleteNode', { nodeId: dialogueId }),
+    '删除节点',
+  );
+  assert.equal(getNode(deleted.project, dialogueId), undefined);
+  assert.equal(deleted.project.settings.startNodeId, null);
+  assert.ok(deleted.affectedNodeIds.includes(choiceId));
+  project = deleted.project;
+
+  while (project.nodes.length > 1) {
+    project = expectOk(
+      executeCommand(project, 'blueprint.deleteNode', { nodeId: project.nodes[0].id }),
+      '继续删除节点',
+    ).project;
+  }
+  assert.equal(
+    executeCommand(project, 'blueprint.deleteNode', { nodeId: project.nodes[0].id }).error.code,
+    'E_LAST_NODE',
+  );
+});
+
+test('timeline.setDuration / timeline.setLoop：时长限制与循环开关', () => {
+  const scene = createNode(fixtureProject(), 'scene');
+  const sceneId = scene.affectedNodeIds[0];
+  let project = expectOk(
+    executeCommand(scene.project, 'timeline.setDuration', { sceneNodeId: sceneId, durationMs: 2000 }),
+    '设置时长',
+  ).project;
+  assert.equal(project.timelines[sceneId].durationMs, 2000);
+  project = expectOk(
+    executeCommand(project, 'timeline.addKeyframe', {
+      sceneNodeId: sceneId,
+      kind: 'background',
+      property: 'opacity',
+      time: 2000,
+      value: 0.5,
+    }),
+    '2000ms 关键帧',
+  ).project;
+  assert.equal(
+    executeCommand(project, 'timeline.setDuration', { sceneNodeId: sceneId, durationMs: 1000 }).error.code,
+    'E_DURATION_TOO_SMALL',
+  );
+  project = expectOk(
+    executeCommand(project, 'timeline.setLoop', { sceneNodeId: sceneId, loop: true }),
+    '设置循环',
+  ).project;
+  assert.equal(project.timelines[sceneId].loop, true);
 });
 
 test('command 结果结构固定，可直接被 MCP 客户端消费', () => {

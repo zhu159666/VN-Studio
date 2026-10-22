@@ -12,7 +12,9 @@ import {
   addEdgeToProject,
   addNodeExitToProject,
   addNodeToProject,
+  removeEdgeFromProject,
   removeNodeExitFromProject,
+  removeNodeFromProject,
   updateNodeInProject,
 } from '../state/projectMutations.js';
 import { EXIT_LIMITS, ID_RE, fail, findEdge, findNode, success } from './helpers.js';
@@ -343,6 +345,166 @@ export const setDefaultExitCommand = {
   },
 };
 
+export const deleteNodeCommand = {
+  name: 'blueprint.deleteNode',
+  category: 'blueprint',
+  title: '删除蓝图节点',
+  description:
+    '删除节点并级联删除与之相连的所有连线；如删的是开始节点会清空 startNodeId。项目至少保留一个节点。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['nodeId'],
+    properties: {
+      nodeId: { type: 'string', minLength: 1, maxLength: 64 },
+    },
+  },
+  run({ project }, params) {
+    const node = findNode(project, params.nodeId);
+    if (!node) return fail('E_NODE_NOT_FOUND', `节点不存在：${params.nodeId}`);
+    if (project.nodes.length <= 1) return fail('E_LAST_NODE', '项目至少需要保留一个节点');
+    const removedEdges = project.edges.filter(
+      (edge) => edge.from === node.id || edge.to === node.id,
+    );
+    const affectedTargets = removedEdges
+      .map((edge) => (edge.from === node.id ? edge.to : edge.from))
+      .filter((id) => id !== node.id);
+    return success({
+      project: removeNodeFromProject(project, node.id),
+      affectedNodeIds: [node.id, ...affectedTargets],
+      data: {
+        removedNode: node,
+        removedEdgeIds: removedEdges.map((edge) => edge.id),
+      },
+    });
+  },
+};
+
+export const removeEdgeCommand = {
+  name: 'blueprint.removeEdge',
+  category: 'blueprint',
+  title: '删除蓝图连线',
+  description: '删除一条连线（不影响节点与出口本身），返回两端节点 id。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['edgeId'],
+    properties: {
+      edgeId: { type: 'string', minLength: 1, maxLength: 64 },
+    },
+  },
+  run({ project }, params) {
+    const edge = findEdge(project, params.edgeId);
+    if (!edge) return fail('E_EDGE_NOT_FOUND', `连线不存在：${params.edgeId}`);
+    return success({
+      project: removeEdgeFromProject(project, edge.id),
+      affectedNodeIds: [edge.from, edge.to],
+      data: { removedEdge: edge },
+    });
+  },
+};
+
+export const setStartNodeCommand = {
+  name: 'blueprint.setStartNode',
+  category: 'blueprint',
+  title: '设置开始节点',
+  description: '设置项目的起始节点（settings.startNodeId）；nodeId=null 表示清空。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['nodeId'],
+    properties: {
+      nodeId: {
+        oneOf: [{ type: 'string', minLength: 1, maxLength: 64 }, { type: 'null' }],
+      },
+    },
+  },
+  run({ project }, params) {
+    const nodeId = params.nodeId ?? null;
+    if (nodeId !== null && !findNode(project, nodeId)) {
+      return fail('E_NODE_NOT_FOUND', `节点不存在：${nodeId}`);
+    }
+    return success({
+      project: {
+        ...project,
+        settings: { ...(project.settings ?? {}), startNodeId: nodeId },
+      },
+      affectedNodeIds: nodeId ? [nodeId] : [],
+      data: { startNodeId: nodeId },
+    });
+  },
+};
+
+export const updateDialogueCommand = {
+  name: 'blueprint.updateDialogue',
+  category: 'blueprint',
+  title: '修改对话节点',
+  description:
+    '修改 dialogue 节点的台词 / 说话人 / 立绘引用 / 语音 / 文字速度 / 自动前进；传 null 可清空可空字段。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['nodeId'],
+    properties: {
+      nodeId: { type: 'string', minLength: 1, maxLength: 64 },
+      text: { type: 'string', maxLength: 20000 },
+      speaker: {
+        oneOf: [{ type: 'string', maxLength: 80 }, { type: 'null' }],
+      },
+      portraitAssetId: {
+        oneOf: [{ type: 'string', minLength: 1, maxLength: 64 }, { type: 'null' }],
+      },
+      voiceAssetId: {
+        oneOf: [{ type: 'string', minLength: 1, maxLength: 64 }, { type: 'null' }],
+      },
+      speedCps: {
+        oneOf: [{ type: 'number', minimum: 0, maximum: 1000 }, { type: 'null' }],
+      },
+      autoAdvanceMs: {
+        oneOf: [{ type: 'integer', minimum: 0, maximum: 600000 }, { type: 'null' }],
+      },
+    },
+  },
+  run({ project }, params) {
+    const node = findNode(project, params.nodeId);
+    if (!node) return fail('E_NODE_NOT_FOUND', `节点不存在：${params.nodeId}`);
+    if (node.type !== 'dialogue') {
+      return fail('E_INVALID_NODE_TYPE', `节点 ${node.id} 不是对话节点`);
+    }
+    const patch = {};
+    if (params.text !== undefined) patch.text = params.text;
+    if (params.speaker !== undefined) patch.speaker = params.speaker;
+    if (params.speedCps !== undefined) patch.speedCps = params.speedCps;
+    if (params.autoAdvanceMs !== undefined) patch.autoAdvanceMs = params.autoAdvanceMs;
+    if (params.portraitAssetId !== undefined) {
+      if (params.portraitAssetId === null) {
+        patch.portrait = null;
+      } else {
+        const asset = project.assets?.images?.find((item) => item.id === params.portraitAssetId);
+        if (!asset) return fail('E_ASSET_NOT_FOUND', `图片素材不存在：${params.portraitAssetId}`);
+        patch.portrait = { assetId: asset.id };
+      }
+    }
+    if (params.voiceAssetId !== undefined) {
+      if (params.voiceAssetId === null) {
+        patch.voice = null;
+      } else {
+        const asset = project.assets?.audio?.find((item) => item.id === params.voiceAssetId);
+        if (!asset) return fail('E_ASSET_NOT_FOUND', `音频素材不存在：${params.voiceAssetId}`);
+        patch.voice = { assetId: asset.id };
+      }
+    }
+    if (Object.keys(patch).length === 0) {
+      return fail('E_INVALID_PARAMS', '至少提供 text / speaker / portraitAssetId / voiceAssetId / speedCps / autoAdvanceMs 之一');
+    }
+    return success({
+      project: updateNodeInProject(project, node.id, patch),
+      affectedNodeIds: [node.id],
+      data: { node: { ...node, ...patch } },
+    });
+  },
+};
+
 export const BLUEPRINT_COMMANDS = [
   createNodeCommand,
   connectCommand,
@@ -350,4 +512,8 @@ export const BLUEPRINT_COMMANDS = [
   updateExitCommand,
   removeExitCommand,
   setDefaultExitCommand,
+  deleteNodeCommand,
+  removeEdgeCommand,
+  setStartNodeCommand,
+  updateDialogueCommand,
 ];

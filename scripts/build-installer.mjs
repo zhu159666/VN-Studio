@@ -133,6 +133,10 @@ function prepareAppDir() {
   }
   const viteCli = path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js');
   if (!fs.existsSync(viteCli)) fail('未安装 vite，请先 pnpm install');
+  const commandBusConfig = path.join(EDITOR, 'vite.command-bus.config.mjs');
+  const mcpStdioConfig = path.join(EDITOR, 'vite.mcp-stdio.config.mjs');
+  run(process.execPath, [viteCli, 'build', '--config', commandBusConfig]);
+  run(process.execPath, [viteCli, 'build', '--config', mcpStdioConfig]);
   run(process.execPath, [viteCli, 'build']);
   run(process.execPath, [path.join(ROOT, 'scripts', 'prepare-ffmpeg.mjs')]);
   const builderCli = path.join(EDITOR, 'node_modules', 'electron-builder', 'cli.js');

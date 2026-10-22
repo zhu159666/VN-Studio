@@ -41,9 +41,25 @@ protocol.registerSchemesAsPrivileged([
 
 const isDev = process.argv.includes('--dev');
 const isSmoke = process.argv.includes('--smoke-test');
+const isMcp = process.argv.includes('--mcp');
 let mainWindow = null;
 let smokeProject = null;
 let smokeFailed = false;
+
+function getArgValue(flag) {
+  const index = process.argv.indexOf(flag);
+  if (index < 0) return null;
+  const value = process.argv[index + 1];
+  return value && !value.startsWith('--') ? value : null;
+}
+
+if (isMcp) {
+  // MCP 模式无窗口：关闭 GPU/沙箱，避免无桌面会话或受限环境下的启动失败。
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('no-sandbox');
+  // MCP 模式下 stdout 是协议通道，所有普通日志改走 stderr。
+  console.log = (...args) => console.error(...args);
+}
 
 function registerAssetProtocol() {
   protocol.handle('vnasset', async (request) => {
@@ -181,6 +197,18 @@ async function runSmokeFlow(win, data) {
 
 async function start() {
   await app.whenReady();
+
+  // MCP stdio server：不创建窗口，外部 MCP 客户端通过 stdin/stdout 调用 command bus。
+  if (isMcp) {
+    const { startMcpServer } = require('./lib/mcp-server.cjs');
+    startMcpServer({
+      defaultProjectPath: getArgValue('--project'),
+      version: app.getVersion(),
+      onClose: () => app.quit(),
+    });
+    return;
+  }
+
   Menu.setApplicationMenu(null);
 
   if (isSmoke) {

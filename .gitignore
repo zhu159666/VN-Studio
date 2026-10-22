@@ -48,3 +48,7 @@ smoke-test*.mp4
 *.log
 .DS_Store
 Thumbs.db
+
+# command bus bundle (built by vite.command-bus.config.mjs)
+editor/electron/generated/
+editor/electron/resources/mcp/

@@ -64,6 +64,12 @@ const result = executeCommand(project, 'blueprint.createNode', {
 | `timeline.updateKeyframe` | timeline | 修改已有 keyframe 的时间 / 数值 / 缓动 |
 | `timeline.removeKeyframe` | timeline | 删除 keyframe（轨道至少保留 1 个） |
 | `timeline.removeTrack` | timeline | 删除整条轨道 |
+| `blueprint.deleteNode` | blueprint | 删除节点并级联删连线；清空指向它的 `startNodeId`，项目至少保留 1 个节点 |
+| `blueprint.removeEdge` | blueprint | 删除单条连线（不动节点/出口） |
+| `blueprint.setStartNode` | blueprint | 设置 / 清空 `settings.startNodeId` |
+| `blueprint.updateDialogue` | blueprint | 改 dialogue 节点的台词、说话人、立绘/语音引用、文字速度、自动前进 |
+| `timeline.setDuration` | timeline | 设置时间轴总时长；缩短时若有关键帧超出会拒绝 |
+| `timeline.setLoop` | timeline | 设置时间轴是否循环播放 |
 
 `listCommands()` 返回每个命令的 `name`、`mcpName`、`category`、`title`、`description`、`inputSchema`。
 
@@ -125,12 +131,42 @@ return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 ```
 
 - `executeCommand` 同时接受点号名 `blueprint.createNode` 和 MCP 下划线名 `blueprint_createNode`，`result.command` 始终是点号规范名。
-- MCP 服务端负责：读取 `project.json` → 执行 → 成功时把 `result.project` 写回 → 返回 `result`（建议同时返回 `content` 文本与 `structuredContent`，便于客户端消费）。
+- MCP 服务端负责：读取 `project.json` → 执行 → 成功时把 `result.project` 写回 → 返回 `result`（同时返回 `content` 文本与 `structuredContent`）。
+
+### 3.1 MCP server（已实现，stdio）
+
+- 主进程实现：[editor/electron/lib/mcp-server.cjs](../../electron/lib/mcp-server.cjs)（最小 JSON-RPC 2.0，无第三方 MCP SDK）。
+- 独立 stdio 启动器：[editor/electron/mcp-stdio.entry.js](../../electron/mcp-stdio.entry.js)，构建为 `resources/mcp/mcp-stdio.cjs`，可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行，不启动 GUI。
+- 工具数量：16 个 command tool + `list_commands` / `get_project_summary` / `execute_command`，共 **19** 个。
+- 每次 `tools/call`：读取 `projectPath`（参数、`--project` 或 `VN_STUDIO_PROJECT`）→ schema 校验 → 执行 command → 成功时原子写回 `project.json` → 返回去掉完整 `project` 的结构化结果（含 `affectedNodeIds` / `affectedTrackIds` / `warnings` / `projectPath` / `saved`）。
+
+MCP 客户端（Windows）配置示例：
+
+```json
+{
+  "mcpServers": {
+    "vn-studio": {
+      "command": "C:\\Users\\<你>\\AppData\\Local\\Programs\\VN Studio\\VN Studio.exe",
+      "args": [
+        "C:\\Users\\<你>\\AppData\\Local\\Programs\\VN Studio\\resources\\mcp\\mcp-stdio.cjs",
+        "--project",
+        "D:\\my-vn-project\\project.json"
+      ],
+      "env": { "ELECTRON_RUN_AS_NODE": "1" }
+    }
+  }
+}
+```
+
+- 也可以在工具参数里逐个传 `projectPath`，这样启动器不需要 `--project`。
+- `ELECTRON_RUN_AS_NODE=1` 让同一个 exe 以 Node 模式运行启动器（Windows GUI 进程的 stdin 在部分宿主下不可靠）。
+- 构建命令：`pnpm build:mcp`（生成 `electron/generated/command-bus.cjs` 和 `electron/resources/mcp/mcp-stdio.cjs`）；安装包通过 `extraResources` 把后者放到 `resources/mcp/`。
+
 
 ## 4. 编辑器内的调用路径
 
 - 渲染进程：`controller.actions.executeCommand(name, params)`；成功后会替换项目并标记 dirty（自动保存/手动保存流程不变）。
-- 未来 MCP：主进程可直接 `import` 本目录的纯函数，对磁盘上的 `project.json` 执行 headless 操作，不依赖打开的编辑器。
+- MCP / AI：通过 `mcp-stdio.cjs` 对磁盘上的 `project.json` 做 headless 操作，不依赖打开的编辑器；每次成功调用后直接写回项目文件。
 - 可选扩展：新增 `commands:list` / `commands:execute` IPC，把主进程收到的 AI 操作转发给渲染进程的当前项目；现有纯函数层无需改动。
 
 ## 5. 错误码
@@ -144,6 +180,9 @@ return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 | `E_NOT_SCENE` | 时间轴操作目标不是场景节点 |
 | `E_DUPLICATE_NODE_ID` | 显式 nodeId 冲突 |
 | `E_DUPLICATE_EDGE_ID` | 显式 edgeId 冲突 |
+| `E_EDGE_NOT_FOUND` | 连线不存在 |
+| `E_LAST_NODE` | 不允许删除项目最后一个节点 |
+| `E_DURATION_TOO_SMALL` | 缩短时间轴时长会使已有 keyframe 越界 |
 | `E_CONNECTION_INVALID` | 源/目标节点或出口不存在、jump 无出口 |
 | `E_FIXED_EXITS` | 固定出口节点不支持该操作 |
 | `E_EXIT_NOT_FOUND` / `E_DUPLICATE_EXIT_ID` | 出口不存在 / id 冲突 |
