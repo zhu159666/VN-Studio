@@ -1,4 +1,4 @@
-# VN Studio（暂定名）· 桌面视觉小说创作套件
+# VN Studio· 桌面视觉小说创作套件
 
 Electron + React + React Flow 的桌面端视觉小说创作套件，配一个零依赖的纯浏览器运行时。项目文件为 JSON，编辑器与运行时共用同一 schema。
 
