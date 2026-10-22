@@ -424,6 +424,84 @@ async function importAudio({ projectDir, role } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// 生成音频（编辑器「音频工坊」）
+// ---------------------------------------------------------------------------
+
+/**
+ * 保存渲染层合成的 WAV：写入 .source，转成 ogg 作为最终文件，返回完整素材记录。
+ * @param {{projectDir:string, name?:string, role?:string, wavBase64:string, durationMs?:number}} options
+ */
+async function saveGeneratedAudio({ projectDir, name, role, wavBase64, durationMs } = {}) {
+  const root = requireProjectDir(projectDir);
+  if (typeof wavBase64 !== 'string' || !wavBase64.trim()) throw new Error('缺少生成的音频数据');
+  const rawBase64 = wavBase64.replace(/^data:[^,]*,/, '');
+  const buffer = Buffer.from(rawBase64, 'base64');
+  if (!buffer.length) throw new Error('生成的音频数据为空');
+  if (!media.isFfmpegAvailable()) {
+    throw new Error('ffmpeg 不可用，无法把生成的 WAV 转成 ogg（请安装 ffmpeg 后重试）');
+  }
+
+  const validRole = utils.audioRoleValid(role) ? role : 'bgm';
+  await ensureProjectDirs(root);
+  const idDirs = [DIRS.audio, DIRS.sourceAudio];
+  const id = await allocateAssetId(root, 'aud', idDirs);
+  const sourceRel = utils.sourceRelPath('audio', id, 'wav');
+  const sourceAbs = utils.safeJoin(root, sourceRel);
+  await fsp.mkdir(path.dirname(sourceAbs), { recursive: true });
+  await fsp.writeFile(sourceAbs, buffer);
+  const created = [sourceAbs];
+
+  try {
+    const sourceStat = await fsp.stat(sourceAbs);
+    let sourceDurationMs = Math.round(Number(durationMs));
+    if (!Number.isInteger(sourceDurationMs) || sourceDurationMs < 1) {
+      sourceDurationMs = await detectAudioDurationMs(sourceAbs, 'wav');
+    }
+    if (!Number.isInteger(sourceDurationMs) || sourceDurationMs < 1 || sourceDurationMs > 600000) {
+      throw new Error('生成的音频时长无效（需在 1 毫秒–10 分钟之间）');
+    }
+
+    const finalRel = utils.finalAudioRelPath(id, 'ogg');
+    const finalAbs = utils.safeJoin(root, finalRel);
+    await media.processAudio({ sourceAbs, outAbs: finalAbs, trim: null, gainDb: 0, format: 'ogg' });
+    created.push(finalAbs);
+    const finalStat = await statOrNull(finalAbs);
+    if (!finalStat || !finalStat.size) throw new Error('生成的 ogg 文件为空');
+
+    let finalDurationMs = await detectAudioDurationMs(finalAbs, 'ogg');
+    if (!Number.isInteger(finalDurationMs) || finalDurationMs < 1) finalDurationMs = sourceDurationMs;
+    const cleanName =
+      String(name ?? '')
+        .trim()
+        .slice(0, 200) || `生成的音频 ${id}`;
+
+    return {
+      id,
+      kind: 'audio',
+      name: cleanName,
+      role: validRole,
+      path: finalRel,
+      format: 'ogg',
+      durationMs: finalDurationMs,
+      sizeBytes: finalStat.size,
+      importedAt: nowIso(),
+      trim: null,
+      gainDb: 0,
+      loop: validRole === 'bgm',
+      source: {
+        path: sourceRel,
+        format: 'wav',
+        durationMs: sourceDurationMs,
+        sizeBytes: sourceStat.size,
+      },
+    };
+  } catch (error) {
+    for (const createdPath of created) await unlinkQuiet(createdPath);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 导入：视频
 // ---------------------------------------------------------------------------
 
@@ -869,6 +947,7 @@ module.exports = {
   importAudio,
   importVideos,
   importMinigames,
+  saveGeneratedAudio,
   readDataUrl,
   readText,
   assetUrl,

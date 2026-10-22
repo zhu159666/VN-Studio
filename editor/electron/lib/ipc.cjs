@@ -197,6 +197,14 @@ function registerIpc(options = {}) {
     }),
   );
 
+  ipcMain.handle('asset:save-generated-audio', async (_event, payload) =>
+    wrap(async () => {
+      const projectDir = assertCurrentProjectDir(payload?.projectDir);
+      const asset = await assets.saveGeneratedAudio({ ...payload, projectDir });
+      return { asset };
+    }),
+  );
+
   ipcMain.handle('asset:import-minigames', async (_event, payload) =>
     wrap(async () => {
       const projectDir = assertCurrentProjectDir(payload?.projectDir);

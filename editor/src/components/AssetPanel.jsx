@@ -263,6 +263,7 @@ export default function AssetPanel({
   onImportAudio,
   onImportVideos,
   onImportMinigames,
+  onOpenAudioStudio,
   onRemoveAsset,
   notify,
   lowerPanel,
@@ -569,6 +570,18 @@ export default function AssetPanel({
                   <span className="vn-asset-menu__item-desc">{role.desc}</span>
                 </button>
               ))}
+              <button
+                type="button"
+                role="menuitem"
+                className="vn-asset-menu__item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenAudioStudio?.();
+                }}
+              >
+                <span className="vn-asset-menu__item-label">制作音频…</span>
+                <span className="vn-asset-menu__item-desc">内置合成器生成 BGM / 音效</span>
+              </button>
 
               <div className="vn-asset-menu__sep" role="separator" />
               <button

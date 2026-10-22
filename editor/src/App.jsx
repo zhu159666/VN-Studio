@@ -11,6 +11,7 @@ export default function App() {
   const [screen, setScreen] = useState('start');
   const [appInfo, setAppInfo] = useState(null);
   const [pendingFilter, setPendingFilter] = useState(null);
+  const [pendingAudioStudio, setPendingAudioStudio] = useState(false);
   const [focusAssetId, setFocusAssetId] = useState(null);
   const [pendingExport, setPendingExport] = useState(false);
 
@@ -95,6 +96,7 @@ export default function App() {
   const handleOpenAssetManager = async (type) => {
     if (controller.project) {
       setPendingFilter(type);
+      setPendingAudioStudio(type === 'audio');
       setScreen('editor');
       return;
     }
@@ -102,6 +104,7 @@ export default function App() {
       const opened = await controller.actions.openProject();
       if (opened) {
         setPendingFilter(type);
+        setPendingAudioStudio(type === 'audio');
         setScreen('editor');
       }
     } catch {
@@ -186,6 +189,8 @@ export default function App() {
             initialFilter={pendingFilter}
             focusAssetId={focusAssetId}
             onBack={handleBackToStart}
+            openAudioStudio={pendingAudioStudio}
+            onAudioStudioOpened={() => setPendingAudioStudio(false)}
           />
         </ProjectProvider>
       ) : (

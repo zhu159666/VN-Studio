@@ -129,7 +129,6 @@ export function useProjectControllerState() {
 
   const stateRef = useRef({});
   stateRef.current = { project, projectPath, projectDir, dirty, saving };
-  const saveTimerRef = useRef(null);
 
   const notify = useCallback((message, kind = 'info') => {
     setToast({ id: Date.now(), message: String(message ?? ''), kind });
@@ -193,17 +192,14 @@ export function useProjectControllerState() {
     [notify, refreshRecent],
   );
 
-  // 自动保存：改动后 900ms 落盘，避免打断创作。
+  // 自动保存：存在未保存改动时每 15 分钟落盘一次（手动保存 / Ctrl+S 不受影响）。
   useEffect(() => {
     if (!dirty || !project) return undefined;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
+    const timer = setInterval(() => {
       saveNow({ silent: true });
-    }, 900);
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [project, dirty, saveNow]);
+    }, 15 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [dirty, project?.meta?.id, saveNow]);
 
   const mutate = useCallback((updater) => {
     setProject((previous) => {

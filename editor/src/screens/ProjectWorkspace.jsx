@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { assetsApi } from '../api';
 import AssetPanel from '../components/AssetPanel';
+import AudioStudioModal from '../components/AudioStudioModal';
 import InspectorPanel from '../components/InspectorPanel';
+import ThemeToggle from '../components/ThemeToggle';
 import EdgeInspector from '../components/inspectors/EdgeInspector';
 import NodeInspector from '../components/inspectors/NodeInspector';
 import SceneInspector from '../components/inspectors/SceneInspector';
@@ -146,7 +148,7 @@ function ProjectOverview({ project, onImport, notify, onOpenBlueprint }) {
   );
 }
 
-export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack }) {
+export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, openAudioStudio = false, onAudioStudioOpened }) {
   const controller = useProjectController();
   const { project, projectDir, dirty, saving, exporting, lastExportDir, lastSavedAt, actions, notify } = controller;
   const layout = project.layout ?? {};
@@ -164,6 +166,14 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack }
   const [rightWidth, setRightWidth] = useState(layout.rightWidth ?? 320);
   const [timelineHeight, setTimelineHeight] = useState(layout.timelineHeight ?? 200);
   const [rightCollapsed, setRightCollapsed] = useState(Boolean(layout.rightCollapsed));
+  const [audioStudioOpen, setAudioStudioOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openAudioStudio) return;
+    setAudioStudioOpen(true);
+    onAudioStudioOpened?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openAudioStudio]);
 
   const sizeRef = useRef({ leftWidth, rightWidth, timelineHeight });
   sizeRef.current = { leftWidth, rightWidth, timelineHeight };
@@ -407,6 +417,7 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack }
           <span className="vn-phase-badge">阶段 6 · 可导出 Web 包</span>
         </div>
         <div className="vn-topbar__right">
+          <ThemeToggle compact />
           <button type="button" className="vn-btn" onClick={() => actions.saveNow()} disabled={saving}>
             保存
           </button>
@@ -467,6 +478,7 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack }
             onImportAudio={(role) => runImport('audio', { role })}
             onImportVideos={() => runImport('videos')}
             onImportMinigames={() => runImport('minigames')}
+            onOpenAudioStudio={() => setAudioStudioOpen(true)}
             onRemoveAsset={handleRemoveAsset}
             notify={notify}
             lowerPanel={layout.leftBottomPanel ?? 'variables'}
@@ -581,6 +593,22 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack }
           </aside>
         ) : null}
       </div>
+
+      {audioStudioOpen ? (
+        <AudioStudioModal
+          projectDir={projectDir}
+          notify={notify}
+          onClose={() => setAudioStudioOpen(false)}
+          onCreated={(asset) => {
+            actions.addAssets([asset]);
+            setSelectedAssetId(asset.id);
+            setSelectedNodeId(null);
+            setSelectedEdgeId(null);
+            setActiveTab('asset');
+            actions.updateEditor({ selectedAssetId: asset.id });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

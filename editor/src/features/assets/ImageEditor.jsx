@@ -350,6 +350,51 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
     [pickMode, load, cropRect, safeNotify],
   );
 
+  // ── 自动抠图：按裁剪区域四角 + 边中点取平均色作为背景色 ──
+  const handleAutoMatte = useCallback(() => {
+    if (load.status !== 'ready' || !cropRect || !imageRef.current) return;
+    const image = imageRef.current;
+    try {
+      const points = [
+        [0, 0], [1, 0], [0, 1], [1, 1],
+        [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5],
+      ];
+      const sample = document.createElement('canvas');
+      sample.width = 1;
+      sample.height = 1;
+      const ctx = sample.getContext('2d', { willReadFrequently: true });
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      for (const [rx, ry] of points) {
+        const sx = Math.min(load.width - 1, Math.max(0, Math.round(cropRect.x + rx * (cropRect.width - 1))));
+        const sy = Math.min(load.height - 1, Math.max(0, Math.round(cropRect.y + ry * (cropRect.height - 1))));
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.drawImage(image, sx, sy, 1, 1, 0, 0, 1, 1);
+        const data = ctx.getImageData(0, 0, 1, 1).data;
+        red += data[0];
+        green += data[1];
+        blue += data[2];
+      }
+      const count = points.length;
+      const hex = rgbToHex({
+        r: Math.round(red / count),
+        g: Math.round(green / count),
+        b: Math.round(blue / count),
+      });
+      setPickedColor(hex);
+      setRemoveBackground((previous) => ({
+        color: hex,
+        tolerance: previous?.tolerance ?? 0.16,
+        softness: previous?.softness ?? 3,
+      }));
+      setPickMode(false);
+      safeNotify('已按画面边缘自动取色；可用吸管微调或调容差', 'info');
+    } catch (error) {
+      safeNotify(error?.message || '自动抠图失败', 'error');
+    }
+  }, [load, cropRect, safeNotify]);
+
   // ── 亮度 / 对比度 ─────────────────────────────────────────────────────
   const updateAdjustment = useCallback((key, value) => {
     setAdjustments((previous) => ({ ...previous, [key]: value }));
@@ -548,6 +593,15 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
                   onClick={() => setPickMode((value) => !value)}
                 >
                   {pickMode ? '取色中…' : '吸管取色'}
+                </button>
+                <button
+                  type="button"
+                  className="vn-ed-btn"
+                  disabled={load.status !== 'ready'}
+                  onClick={handleAutoMatte}
+                  title="按画面边缘自动取背景色，一键抠图"
+                >
+                  自动抠图
                 </button>
                 <span
                   className="vn-ed-swatch"

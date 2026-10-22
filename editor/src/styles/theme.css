@@ -1,0 +1,63 @@
+/* 明/暗模式切换按钮与少量明亮主题覆盖（其余颜色由 base.css 的变量驱动）。 */
+
+.vn-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.vn-theme-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.vn-theme-toggle.is-compact {
+  padding: 4px 7px;
+}
+
+.vn-theme-toggle svg {
+  display: block;
+}
+
+/* 明亮主题下的可读性修正（深色媒体区/舞台保持原样）。 */
+:root[data-theme='light'] .vn-toast--error {
+  color: var(--danger);
+}
+
+:root[data-theme='light'] .vn-chip--image {
+  color: #1f6fd0;
+  border-color: #9cc3ee;
+}
+
+:root[data-theme='light'] .vn-chip--audio {
+  color: #6a4ecb;
+  border-color: #c3b6ee;
+}
+
+:root[data-theme='light'] .vn-chip--video {
+  color: #b3541e;
+  border-color: #e6b79f;
+}
+
+:root[data-theme='light'] .vn-chip--minigame {
+  color: #197a55;
+  border-color: #9ad4bd;
+}
+
+:root[data-theme='light'] .vn-bp-node {
+  box-shadow: 0 8px 22px rgba(24, 35, 50, 0.14);
+}
+
+:root[data-theme='light'] .vn-start-card:hover:not(:disabled) {
+  box-shadow: 0 14px 30px rgba(24, 35, 50, 0.16);
+}

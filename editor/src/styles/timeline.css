@@ -270,7 +270,7 @@
   top: 0;
   bottom: 0;
   padding-left: 4px;
-  border-left: 1px solid #2c3640;
+  border-left: 1px solid var(--border);
   color: var(--text-2);
   font-size: 9.5px;
   line-height: 26px;

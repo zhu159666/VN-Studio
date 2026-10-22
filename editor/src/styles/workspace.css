@@ -66,7 +66,7 @@
   padding: 3px 10px;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  color: #a8d3ff;
+  color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   font-size: 11px;
   white-space: nowrap;

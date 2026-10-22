@@ -12,10 +12,34 @@
   --danger: #ff6b6b;
   --warn: #ffc857;
   --success: #67d99a;
+  --accent-contrast: #08111c;
+  --scrollbar: #33404d;
+  --scrollbar-hover: #445566;
   --radius: 8px;
   --font-ui: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'Cascadia Code', Consolas, 'Courier New', monospace;
   color-scheme: dark;
+}
+
+/* 明亮主题：编辑器外壳（画布/预览舞台保持深色，避免影响画面判断）。 */
+:root[data-theme='light'] {
+  --bg-0: #eef1f5;
+  --bg-1: #ffffff;
+  --bg-2: #f4f6f9;
+  --bg-3: #e7ebf1;
+  --border: #cfd7e1;
+  --text-0: #1a222c;
+  --text-1: #4b5a68;
+  --text-2: #6e7d8b;
+  --accent: #2f7fe0;
+  --accent-2: #0f9b7a;
+  --danger: #d64545;
+  --warn: #a97417;
+  --success: #2f9e62;
+  --accent-contrast: #ffffff;
+  --scrollbar: #c2ccd8;
+  --scrollbar-hover: #a9b6c6;
+  color-scheme: light;
 }
 
 *,
@@ -77,14 +101,14 @@ a {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #33404d;
+  background: var(--scrollbar);
   border-radius: 6px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #445566;
+  background: var(--scrollbar-hover);
   background-clip: padding-box;
 }
 

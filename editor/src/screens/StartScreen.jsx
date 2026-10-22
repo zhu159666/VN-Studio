@@ -6,6 +6,7 @@
  * 创建项目的 modal 内部完成标题 + 分辨率校验，再交给 onCreateProject。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import ThemeToggle from '../components/ThemeToggle';
 import '../styles/start.css';
 
 /** 分辨率预设（自定义范围与 schema settings.resolution 一致） */
@@ -286,6 +287,7 @@ export default function StartScreen({
         </div>
 
         <div className="vn-start-status">
+          <ThemeToggle compact />
           <span className="vn-start-version" title="编辑器版本">
             v{appInfo?.version || '0.0.0'}
           </span>
@@ -346,7 +348,7 @@ export default function StartScreen({
               <IconAudio />
             </span>
             <span className="vn-start-card__title">音乐管理</span>
-            <span className="vn-start-card__desc">BGM · 音效 · 语音的导入与整理</span>
+            <span className="vn-start-card__desc">导入素材，或用音频工坊制作 BGM / 音效</span>
           </button>
 
           <button

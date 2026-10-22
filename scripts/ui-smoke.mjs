@@ -303,6 +303,33 @@ function mockBridgeSource({ project, fileMap, assetIds }) {
     importAudio: async () => ({ ok: true, canceled: true }),
     importVideos: async () => ({ ok: true, canceled: true }),
     importMinigames: async () => ({ ok: true, canceled: true }),
+    saveGeneratedAudio: async ({ name, role, durationMs }) => {
+      const id = 'aud_gen_' + Date.now();
+      const ms = durationMs || 1000;
+      return {
+        ok: true,
+        asset: {
+          id,
+          kind: 'audio',
+          name: name || id,
+          role: role || 'bgm',
+          path: 'assets/audio/' + id + '.ogg',
+          format: 'ogg',
+          durationMs: ms,
+          sizeBytes: 2048,
+          importedAt: new Date().toISOString(),
+          trim: null,
+          gainDb: 0,
+          loop: role === 'bgm',
+          source: {
+            path: 'assets/.source/audio/' + id + '.wav',
+            format: 'wav',
+            durationMs: ms,
+            sizeBytes: 4096,
+          },
+        },
+      };
+    },
     readDataUrl: async ({ relativePath }) => {
       const dataUrl = await toDataUrl(relativePath);
       return dataUrl ? { ok: true, dataUrl, mime: 'application/octet-stream' } : { ok: false, error: 'mock 文件不存在：' + relativePath };
@@ -410,6 +437,15 @@ async function main() {
     await startPage.waitForTimeout(500);
     await capture(startPage, 'chromium-start.png');
 
+    // 明/暗模式切换（开始界面）
+    await startPage.locator('.vn-start-status .vn-theme-toggle').click();
+    await startPage.waitForTimeout(300);
+    const startTheme = await startPage.evaluate(() => document.documentElement.dataset.theme);
+    if (startTheme !== 'light') throw new Error(`开始界面明亮模式切换失败：${startTheme}`);
+    await capture(startPage, 'chromium-start-light.png');
+    await startPage.locator('.vn-start-status .vn-theme-toggle').click();
+    await startPage.waitForTimeout(200);
+
     await startPage.getByRole('button', { name: /创建项目/ }).first().click();
     await startPage.waitForSelector('.vn-start-modal, [role="dialog"]');
     await capture(startPage, 'chromium-create-modal.png');
@@ -425,6 +461,33 @@ async function main() {
     await editorPage.waitForSelector('.vn-workspace');
     await editorPage.waitForTimeout(700);
     await capture(editorPage, 'chromium-workspace.png');
+
+    // 明/暗模式切换（编辑器）
+    await editorPage.locator('.vn-workspace__topbar .vn-theme-toggle').click();
+    await editorPage.waitForTimeout(300);
+    const editorTheme = await editorPage.evaluate(() => document.documentElement.dataset.theme);
+    if (editorTheme !== 'light') throw new Error(`编辑器明亮模式切换失败：${editorTheme}`);
+    await capture(editorPage, 'chromium-workspace-light.png');
+    await editorPage.locator('.vn-workspace__topbar .vn-theme-toggle').click();
+    await editorPage.waitForTimeout(200);
+
+    // 音频工坊：导入菜单 → 制作音频 → 打开 / 试听 / 关闭
+    await editorPage.getByRole('button', { name: '导入', exact: true }).click();
+    await editorPage.getByRole('menuitem', { name: /制作音频/ }).click();
+    await editorPage.waitForSelector('.vn-audio-studio');
+    await editorPage.waitForTimeout(300);
+    await capture(editorPage, 'chromium-audio-studio.png');
+    const studioCheck = await editorPage.evaluate(() => {
+      const modal = document.querySelector('.vn-audio-studio');
+      return { ok: Boolean(modal && modal.querySelector('select') && modal.querySelector('input')) };
+    });
+    if (!studioCheck.ok) throw new Error('音频工坊未正确打开');
+    await editorPage.getByRole('button', { name: '试听', exact: true }).click();
+    await editorPage.waitForTimeout(500);
+    const stopPreviewButton = editorPage.getByRole('button', { name: /停止试听/ });
+    if ((await stopPreviewButton.count()) > 0) await stopPreviewButton.click();
+    await editorPage.getByRole('button', { name: '关闭', exact: true }).click();
+    await editorPage.waitForTimeout(300);
 
     // 蓝图：画布 / 场景属性面板 / 创建节点菜单
     await editorPage.getByRole('button', { name: '蓝图', exact: true }).click();

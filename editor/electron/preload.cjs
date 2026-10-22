@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('vnStudio', {
     importAudio: (payload) => invoke('asset:import-audio', payload),
     importVideos: (payload) => invoke('asset:import-videos', payload),
     importMinigames: (payload) => invoke('asset:import-minigames', payload),
+    saveGeneratedAudio: (payload) => invoke('asset:save-generated-audio', payload),
     readDataUrl: (payload) => invoke('asset:read-data-url', payload),
     readText: (payload) => invoke('asset:read-text', payload),
     assetUrl: (payload) => invoke('asset:url', payload),

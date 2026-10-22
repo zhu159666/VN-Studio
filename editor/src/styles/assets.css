@@ -338,7 +338,7 @@
 .vn-asset-list::-webkit-scrollbar-thumb:hover,
 .vn-asset-menu::-webkit-scrollbar-thumb:hover,
 .vn-panel-section::-webkit-scrollbar-thumb:hover {
-  background: #35424e;
+  background: var(--border);
 }
 
 /* ── 素材条目 ── */
@@ -582,7 +582,7 @@
   padding: 18px 12px;
   border: 1px dashed var(--border);
   border-radius: 8px;
-  background: rgba(29, 36, 44, 0.3);
+  background: color-mix(in srgb, var(--bg-2) 62%, transparent);
   color: var(--text-2);
   font-size: 11px;
   line-height: 1.65;
@@ -842,7 +842,7 @@
   padding: 0 5px;
   border: 1px dashed var(--border);
   border-radius: 5px;
-  background: rgba(37, 46, 56, 0.5);
+  background: color-mix(in srgb, var(--bg-3) 60%, transparent);
   color: var(--text-2);
   font-size: 10px;
   white-space: nowrap;
@@ -851,7 +851,7 @@
 }
 
 .vn-panel-var-row.is-reserved .vn-panel-input {
-  background: rgba(37, 46, 56, 0.55);
+  background: color-mix(in srgb, var(--bg-3) 66%, transparent);
   color: var(--text-1);
 }
 

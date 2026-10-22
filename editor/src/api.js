@@ -68,6 +68,7 @@ export const assetsApi = {
   importAudio: (payload) => invoke(() => bridge().assets.importAudio(payload)),
   importVideos: (payload) => invoke(() => bridge().assets.importVideos(payload)),
   importMinigames: (payload) => invoke(() => bridge().assets.importMinigames(payload)),
+  saveGeneratedAudio: (payload) => invoke(() => bridge().assets.saveGeneratedAudio(payload)),
   readDataUrl: (payload) => invoke(() => bridge().assets.readDataUrl(payload)),
   readText: (payload) => invoke(() => bridge().assets.readText(payload)),
   assetUrl: (payload) => invoke(() => bridge().assets.assetUrl(payload)),
