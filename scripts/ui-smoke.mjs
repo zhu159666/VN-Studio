@@ -436,6 +436,9 @@ async function main() {
     await startPage.waitForSelector('.vn-start-screen');
     await startPage.waitForTimeout(500);
     await capture(startPage, 'chromium-start.png');
+    if ((await startPage.getByRole('button', { name: '打开项目' }).count()) === 0) {
+      throw new Error('开始界面缺少「打开项目」按钮');
+    }
 
     // 明/暗模式切换（开始界面）
     await startPage.locator('.vn-start-status .vn-theme-toggle').click();
@@ -461,6 +464,9 @@ async function main() {
     await editorPage.waitForSelector('.vn-workspace');
     await editorPage.waitForTimeout(700);
     await capture(editorPage, 'chromium-workspace.png');
+    if ((await editorPage.getByRole('button', { name: '桌面版' }).count()) === 0) {
+      throw new Error('编辑器顶部缺少「桌面版」导出按钮');
+    }
 
     // 明/暗模式切换（编辑器）
     await editorPage.locator('.vn-workspace__topbar .vn-theme-toggle').click();

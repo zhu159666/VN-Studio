@@ -3,6 +3,7 @@
 // 主进程 IPC 注册。所有处理器统一返回 { ok: true, ... } 或 { ok: false, error }。
 
 const path = require('node:path');
+const fs = require('node:fs');
 const { ipcMain, dialog, BrowserWindow, app, shell } = require('electron');
 
 const projectStore = require('./project.cjs');
@@ -330,6 +331,51 @@ function registerIpc(options = {}) {
         };
       }
       return { ok: true, ...result };
+    } catch (error) {
+      return { ok: false, error: error?.message || String(error), errors: error?.errors ?? [] };
+    }
+  });
+
+  ipcMain.handle('export:desktop', async (_event, payload) => {
+    try {
+      const projectDir = assertCurrentProjectDir(payload?.projectDir);
+      const win = getWindow();
+      const picked = await dialog.showOpenDialog(win, {
+        title: '选择桌面版导出位置（将生成游戏文件夹 + 启动游戏.cmd）',
+        buttonLabel: '导出到此目录',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (picked.canceled || picked.filePaths.length === 0) return { ok: true, canceled: true };
+      const result = await exportProjectWeb({
+        project: payload?.project,
+        projectDir,
+        outputParentDir: picked.filePaths[0],
+      });
+      if (!result.ok) {
+        return {
+          ok: false,
+          error: result.error,
+          errors: result.errors ?? [],
+          warnings: result.warnings ?? [],
+        };
+      }
+      // 桌面播放模式：双击启动器 → VN Studio.exe --play <本目录>（不打开编辑器、不需要浏览器/服务器）
+      const launcher = path.join(result.outputDir, '启动游戏.cmd');
+      const exe = process.execPath;
+      const playArgs = app.isPackaged
+        ? '--play "%~dp0"'
+        : `"${app.getAppPath()}" --play "%~dp0"`;
+      fs.writeFileSync(
+        launcher,
+        `@echo off\r\nchcp 65001 >nul\r\nstart "" "${exe}" ${playArgs}\r\n`,
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(result.outputDir, '如何游玩.txt'),
+        '双击「启动游戏.cmd」即可用 VN Studio 桌面播放模式打开本游戏，无需浏览器或本地服务器。\r\n',
+        'utf8',
+      );
+      return { ok: true, ...result, launcher };
     } catch (error) {
       return { ok: false, error: error?.message || String(error), errors: error?.errors ?? [] };
     }

@@ -87,6 +87,7 @@ export const savesApi = {
 export const exportApi = {
   validate: (payload) => invoke(() => bridge().exports.validate(payload)),
   web: (payload) => invoke(() => bridge().exports.web(payload)),
+  desktop: (payload) => invoke(() => bridge().exports.desktop(payload)),
   openPath: (payload) => invoke(() => bridge().exports.openPath(payload)),
 };
 

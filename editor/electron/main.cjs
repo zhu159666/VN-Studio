@@ -3,8 +3,9 @@
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { pathToFileURL } = require('node:url');
-const { app, BrowserWindow, Menu, net, protocol } = require('electron');
+const { app, BrowserWindow, Menu, dialog, net, protocol } = require('electron');
 
 const paths = require('./lib/paths.cjs');
 const ipc = require('./lib/ipc.cjs');
@@ -37,11 +38,23 @@ protocol.registerSchemesAsPrivileged([
       corsEnabled: true,
     },
   },
+  {
+    // 桌面播放模式：VN Studio.exe --play <web 包目录>
+    scheme: 'vnplay',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+    },
+  },
 ]);
 
 const isDev = process.argv.includes('--dev');
 const isSmoke = process.argv.includes('--smoke-test');
 const isMcp = process.argv.includes('--mcp');
+const isPlay = process.argv.includes('--play');
 let mainWindow = null;
 let smokeProject = null;
 let smokeFailed = false;
@@ -85,6 +98,85 @@ function registerAssetProtocol() {
       return new Response('asset error', { status: 400 });
     }
   });
+}
+
+const gameRoots = new Map();
+
+/** 桌面播放模式：把导出的 Web 包通过 vnplay://<gameId>/ 提供，存档 origin 稳定。 */
+function registerGameProtocol() {
+  protocol.handle('vnplay', async (request) => {
+    try {
+      const url = new URL(request.url);
+      const root = gameRoots.get(url.host);
+      if (!root) return new Response('game not found', { status: 404 });
+      const relative = decodeURIComponent(url.pathname.replace(/^\//, '')) || 'index.html';
+      const abs = paths.resolveInside(root, relative);
+      if (!fs.existsSync(abs)) return new Response('not found', { status: 404 });
+      const upstream = await net.fetch(pathToFileURL(abs).toString(), { headers: request.headers });
+      const headers = new Headers(upstream.headers);
+      headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Cache-Control', 'no-store');
+      if (!headers.get('Content-Type')) {
+        headers.set(
+          'Content-Type',
+          MIME_BY_EXT[path.extname(abs).toLowerCase()] || 'application/octet-stream',
+        );
+      }
+      return new Response(upstream.body, { status: upstream.status, headers });
+    } catch (error) {
+      console.warn('[vnplay]', error.message);
+      return new Response('game error', { status: 400 });
+    }
+  });
+}
+
+async function startPlayMode(gameDir) {
+  const root = gameDir ? path.resolve(gameDir) : null;
+  if (!root || !fs.existsSync(path.join(root, 'index.html')) || !fs.existsSync(path.join(root, 'game.json'))) {
+    dialog.showErrorBox(
+      '无法启动游戏',
+      '请选择 VN Studio 导出的 Web 包目录（目录内应包含 index.html 与 game.json）。',
+    );
+    app.quit();
+    return;
+  }
+  let title = 'VN Studio';
+  try {
+    const gameJson = JSON.parse(fs.readFileSync(path.join(root, 'game.json'), 'utf8'));
+    title = gameJson.meta?.title || title;
+  } catch {
+    /* 标题读取失败时用默认值 */
+  }
+  const gameId = `g${crypto.createHash('sha256').update(root).digest('hex').slice(0, 16)}`;
+  gameRoots.set(gameId, root);
+  registerGameProtocol();
+
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 720,
+    minWidth: 960,
+    minHeight: 540,
+    show: false,
+    backgroundColor: '#070b10',
+    title,
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      spellcheck: false,
+    },
+  });
+  win.setMenuBarVisibility(false);
+  win.once('ready-to-show', () => win.show());
+  win.on('closed', () => app.quit());
+  try {
+    await win.loadURL(`vnplay://${gameId}/index.html?game=./game.json`);
+  } catch (error) {
+    console.error('[play] 加载游戏失败：', error);
+    dialog.showErrorBox('无法启动游戏', `加载失败：${error.message}`);
+    app.quit();
+  }
 }
 
 function createMainWindow() {
@@ -206,6 +298,12 @@ async function start() {
       version: app.getVersion(),
       onClose: () => app.quit(),
     });
+    return;
+  }
+
+  // 桌面播放模式：VN Studio.exe --play <导出的 Web 包目录>
+  if (isPlay) {
+    await startPlayMode(getArgValue('--play'));
     return;
   }
 

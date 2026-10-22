@@ -328,6 +328,36 @@ export function useProjectControllerState() {
     }
   }, [notify]);
 
+  const exportDesktop = useCallback(async () => {
+    const current = stateRef.current;
+    if (!current.project || !current.projectDir) {
+      notify('请先打开项目再导出', 'warn');
+      return null;
+    }
+    setExporting(true);
+    try {
+      const result = await exportApi.desktop({
+        project: current.project,
+        projectDir: current.projectDir,
+      });
+      if (result.canceled) return null;
+      setLastExportDir(result.outputDir ?? null);
+      notify(`桌面版已导出：${result.outputDir}（双击「启动游戏.cmd」游玩）`, 'success');
+      return result;
+    } catch (error) {
+      const errors = Array.isArray(error.errors) ? error.errors : [];
+      const detail = errors
+        .slice(0, 3)
+        .map((item) => `${item.code ? `${item.code} ` : ''}${item.message}`)
+        .join('；');
+      notify(`桌面版导出失败：${detail || error.message}`, 'error');
+      console.warn('[export] 桌面版导出失败', errors.length > 0 ? errors : error);
+      return null;
+    } finally {
+      setExporting(false);
+    }
+  }, [notify]);
+
   const openExportDir = useCallback(async () => {
     if (!lastExportDir) return;
     try {
@@ -398,6 +428,7 @@ export function useProjectControllerState() {
     setTimelineDuration: (sceneNodeId, durationMs) =>
       mutate((p) => updateTimelineDurationInProject(p, sceneNodeId, durationMs)),
     exportWeb,
+    exportDesktop,
     openExportDir,
   };
 

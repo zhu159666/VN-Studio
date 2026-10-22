@@ -67,6 +67,27 @@
   font-size: 12px;
 }
 
+.vn-start-open-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.vn-start-open-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.vn-start-open-btn:disabled {
+  opacity: 0.5;
+}
+
 .vn-start-version {
   padding: 3px 10px;
   border: 1px solid var(--border);

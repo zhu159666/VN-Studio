@@ -287,6 +287,15 @@ export default function StartScreen({
         </div>
 
         <div className="vn-start-status">
+          <button
+            type="button"
+            className="vn-start-open-btn"
+            onClick={() => runAction(onOpenProject, '打开项目失败')}
+            disabled={busy}
+            title="打开已有项目（选择 project.json）"
+          >
+            打开项目
+          </button>
           <ThemeToggle compact />
           <span className="vn-start-version" title="编辑器版本">
             v{appInfo?.version || '0.0.0'}

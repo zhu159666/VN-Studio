@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('vnStudio', {
   exports: {
     validate: (payload) => invoke('export:validate', payload),
     web: (payload) => invoke('export:web', payload),
+    desktop: (payload) => invoke('export:desktop', payload),
     openPath: (payload) => invoke('shell:open-path', payload),
   },
 });

@@ -433,6 +433,15 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
           >
             {exporting ? '导出中…' : '导出'}
           </button>
+          <button
+            type="button"
+            className="vn-btn vn-btn--ghost"
+            onClick={() => actions.exportDesktop()}
+            disabled={exporting}
+            title="导出桌面版：双击「启动游戏.cmd」用 VN Studio 播放，无需浏览器"
+          >
+            桌面版
+          </button>
           {lastExportDir ? (
             <button
               type="button"

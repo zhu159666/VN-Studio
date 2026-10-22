@@ -103,6 +103,11 @@ scripts/                      schema/文档校验、UI/运行时/导出/桌面�
 - **MCP 已接入**：`editor/electron/lib/mcp-server.cjs` 提供 stdio JSON-RPC server；`mcp-stdio.cjs` 由 `ELECTRON_RUN_AS_NODE=1` 启动（不打开 GUI），暴露 21 个 command tools + `list_commands` / `get_project_summary` / `execute_command`，每次调用读取 `project.json`、执行 command、原子写回并返回结构化结果；同时提供 HTTP 传输（GUI 启动后 `http://127.0.0.1:38123/mcp`）。客户端配置见 [editor/src/commands/README.md](editor/src/commands/README.md#31-mcp-server已实现stdio)。
 - 编辑器通过 `actions.executeCommand(name, params)` 调用。测试见 `tests/phase8/commands.test.mjs`、`tests/phase8/mcp.test.mjs`。
 
+**打开项目 / 桌面版游玩**：
+- 开始界面右上角新增「打开项目」，可直接选择已有 `project.json`（此前只有创建项目与最近项目）。
+- 编辑器顶部新增「桌面版」导出：在导出 Web 包的同时生成 `启动游戏.cmd`，双击后用 `VN Studio.exe --play <目录>` 进入独立播放窗口（`vnplay://` 协议，存档 origin 稳定），不进入编辑器、不需要浏览器或本地服务器。
+- 也可以命令行播放：`VN Studio.exe --play "D:\\path\\game-web"`。
+
 ## 本地运行与验证
 
 ```bash
