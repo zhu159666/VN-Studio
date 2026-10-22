@@ -19,6 +19,8 @@
     "editor:smoke": "pnpm --filter @vn-studio/editor smoke",
     "editor:dist": "pnpm --filter @vn-studio/editor dist",
     "editor:dist:dir": "pnpm --filter @vn-studio/editor dist:dir",
+    "editor:dist:win": "pnpm --filter @vn-studio/editor dist:win",
+    "editor:dist:portable": "pnpm --filter @vn-studio/editor dist:portable",
     "editor:installer": "pnpm --filter @vn-studio/editor dist:installer",
     "smoke:ui": "node scripts/ui-smoke.mjs",
     "smoke:runtime": "node scripts/runtime-smoke.mjs",
