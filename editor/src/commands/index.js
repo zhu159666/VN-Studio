@@ -8,13 +8,14 @@
 import AjvModule from 'ajv';
 
 import { BLUEPRINT_COMMANDS } from './blueprintCommands.js';
+import { SCENE_COMMANDS } from './sceneCommands.js';
 import { TIMELINE_COMMANDS } from './timelineCommands.js';
 import { fail, success, toMcpToolName } from './helpers.js';
 
 const Ajv = AjvModule?.default ?? AjvModule;
 const ajv = new Ajv({ allErrors: true, strict: false, allowUnionTypes: true });
 
-const COMMANDS = [...BLUEPRINT_COMMANDS, ...TIMELINE_COMMANDS];
+const COMMANDS = [...BLUEPRINT_COMMANDS, ...TIMELINE_COMMANDS, ...SCENE_COMMANDS];
 const BY_NAME = new Map();
 for (const command of COMMANDS) {
   if (BY_NAME.has(command.name)) throw new Error(`重复的 command：${command.name}`);

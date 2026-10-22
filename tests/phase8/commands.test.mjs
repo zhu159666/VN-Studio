@@ -86,7 +86,7 @@ function getNode(project, nodeId) {
 test('command 描述可 JSON 序列化，并可直接映射为 MCP tools', () => {
   const commands = listCommands();
   assert.equal(commands.length, COMMAND_NAMES.length);
-  assert.equal(commands.length, 16);
+  assert.equal(commands.length, 21);
   assert.deepEqual(new Set(COMMAND_NAMES), new Set(commands.map((item) => item.name)));
   for (const command of commands) {
     assert.ok(command.name.includes('.'), `command 名应带分类前缀：${command.name}`);
@@ -94,7 +94,7 @@ test('command 描述可 JSON 序列化，并可直接映射为 MCP tools', () =>
     assert.equal(command.inputSchema.type, 'object');
     assert.equal(command.inputSchema.additionalProperties, false);
     assert.ok(command.description.length > 10);
-    assert.ok(command.category === 'blueprint' || command.category === 'timeline');
+    assert.ok(['blueprint', 'timeline', 'scene'].includes(command.category));
   }
   const tools = commandsToMcpTools();
   assert.deepEqual(tools.map((tool) => tool.name), commands.map((item) => item.mcpName));
@@ -604,6 +604,129 @@ test('timeline.setDuration / timeline.setLoop：时长限制与循环开关', ()
     '设置循环',
   ).project;
   assert.equal(project.timelines[sceneId].loop, true);
+});
+
+test('scene：背景 / 立绘 / BGM 配置与级联删除轨道', () => {
+  const sceneResult = createNode(fixtureProject(), 'scene');
+  const sceneId = sceneResult.affectedNodeIds[0];
+  let project = sceneResult.project;
+
+  let result = expectOk(
+    executeCommand(project, 'scene.setBackground', {
+      sceneNodeId: sceneId,
+      assetId: 'img_bg',
+      fit: 'contain',
+      x: 0.3,
+      y: 0.4,
+      opacity: 0.8,
+    }),
+    '设置背景',
+  );
+  project = result.project;
+  assert.equal(getNode(project, sceneId).background.assetId, 'img_bg');
+  assert.equal(getNode(project, sceneId).background.fit, 'contain');
+  assert.equal(
+    executeCommand(project, 'scene.setBackground', { sceneNodeId: sceneId, assetId: 'nope' }).error.code,
+    'E_ASSET_NOT_FOUND',
+  );
+  assert.equal(
+    executeCommand(project, 'scene.setBackground', { sceneNodeId: 'n_opening', assetId: 'img_bg' }).error.code,
+    'E_NOT_SCENE',
+  );
+  project = expectOk(
+    executeCommand(project, 'scene.setBackground', { sceneNodeId: sceneId, assetId: null }),
+    '清空背景',
+  ).project;
+  assert.equal(getNode(project, sceneId).background, null);
+
+  result = expectOk(
+    executeCommand(project, 'scene.addSprite', { sceneNodeId: sceneId, assetId: 'img_sp' }),
+    '添加立绘',
+  );
+  project = result.project;
+  const spriteId = result.data.sprite.id;
+  assert.match(spriteId, /^sp_/);
+  assert.equal(getNode(project, sceneId).sprites.length, 1);
+  project = expectOk(
+    executeCommand(project, 'scene.addSprite', {
+      sceneNodeId: sceneId,
+      assetId: 'img_sp',
+      id: 'sp_2',
+      x: 0.2,
+      y: 0.5,
+      scale: 1.2,
+      zIndex: 3,
+      opacity: 0.9,
+    }),
+    '添加第二个立绘',
+  ).project;
+  assert.equal(getNode(project, sceneId).sprites.length, 2);
+  assert.equal(
+    executeCommand(project, 'scene.addSprite', { sceneNodeId: sceneId, assetId: 'img_sp', id: 'sp_2' }).error
+      .code,
+    'E_DUPLICATE_SPRITE_ID',
+  );
+
+  project = expectOk(
+    executeCommand(project, 'scene.updateSprite', {
+      sceneNodeId: sceneId,
+      spriteId,
+      x: 0.6,
+      opacity: 0.5,
+    }),
+    '修改立绘',
+  ).project;
+  assert.equal(getNode(project, sceneId).sprites[0].x, 0.6);
+  assert.equal(
+    executeCommand(project, 'scene.updateSprite', { sceneNodeId: sceneId, spriteId: 'sp_missing', x: 0.1 })
+      .error.code,
+    'E_SPRITE_NOT_FOUND',
+  );
+
+  result = expectOk(
+    executeCommand(project, 'timeline.addKeyframe', {
+      sceneNodeId: sceneId,
+      kind: 'sprite',
+      target: spriteId,
+      property: 'x',
+      time: 100,
+      value: 0.7,
+    }),
+    '立绘轨道',
+  );
+  project = result.project;
+  const trackId = result.data.track.id;
+
+  result = expectOk(
+    executeCommand(project, 'scene.removeSprite', { sceneNodeId: sceneId, spriteId }),
+    '删除立绘',
+  );
+  project = result.project;
+  assert.equal(getNode(project, sceneId).sprites.length, 1);
+  assert.ok(result.affectedTrackIds.includes(trackId));
+  assert.equal(
+    (project.timelines[sceneId]?.tracks ?? []).some((track) => track.id === trackId),
+    false,
+  );
+
+  project = expectOk(
+    executeCommand(project, 'scene.setBgm', {
+      sceneNodeId: sceneId,
+      assetId: 'aud_bgm',
+      volume: 0.6,
+      loop: false,
+      fadeInMs: 500,
+    }),
+    '设置 BGM',
+  ).project;
+  assert.equal(getNode(project, sceneId).audio.bgmAssetId, 'aud_bgm');
+  assert.equal(getNode(project, sceneId).audio.loop, false);
+  project = expectOk(
+    executeCommand(project, 'scene.setBgm', { sceneNodeId: sceneId, assetId: null }),
+    '清空 BGM',
+  ).project;
+  assert.equal(getNode(project, sceneId).audio.bgmAssetId, null);
+  expectOk({ project, ok: true }, '场景 command 结果');
 });
 
 test('command 结果结构固定，可直接被 MCP 客户端消费', () => {

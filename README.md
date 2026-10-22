@@ -43,7 +43,7 @@ runtime/                      纯浏览器运行时（原生 ESM + Canvas/DOM）
   runtime.js / storage.js / runtime.css / index.html
   CONTRACT-PHASE5.md
 schema/                       schema.json（66 个 $defs）+ FIELDS.md
-assets/、saves/、examples/、tests/（306 项）
+assets/、saves/、examples/、tests/（308 项）
 scripts/                      schema/文档校验、UI/运行时/导出/桌面冒烟
 ```
 
@@ -98,9 +98,9 @@ scripts/                      schema/文档校验、UI/运行时/导出/桌面�
 
 **阶段八 Command bus + MCP（MCP-ready）**：
 - `editor/src/commands/` 是纯逻辑命令总线（不依赖 React / DOM / Electron），为把编辑器操作暴露给 MCP / AI 做准备。
-- 共 **16 个 command**：蓝图节点创建 / 连线 / 出口配置（增/改/删/默认出口）、节点删除 / 连线删除 / 开始节点 / 对话内容、时间轴关键帧（增/改/删）、轨道删除、时间轴时长与循环。
+- 共 **21 个 command**：蓝图节点创建 / 连线 / 出口配置（增/改/删/默认出口）、节点删除 / 连线删除 / 开始节点 / 对话内容、时间轴关键帧（增/改/删）、轨道删除、时间轴时长与循环、场景背景 / 立绘 / BGM 配置。
 - 每个 command 都有 JSON Schema `inputSchema` 与描述；`listCommands()` / `commandsToMcpTools()` 可直接映射成 MCP tools。参数只接受 JSON 可序列化类型，执行返回统一结构：`ok`、`command`、`affectedNodeIds`、`affectedTrackIds`、`warnings`、`data`、`project`（成功时）或 `error.code/message`（失败时，不抛异常）。
-- **MCP 已接入**：`editor/electron/lib/mcp-server.cjs` 提供 stdio JSON-RPC server；`mcp-stdio.cjs` 由 `ELECTRON_RUN_AS_NODE=1` 启动（不打开 GUI），暴露 16 个 command tools + `list_commands` / `get_project_summary` / `execute_command`，每次调用读取 `project.json`、执行 command、原子写回并返回结构化结果。客户端配置见 [editor/src/commands/README.md](editor/src/commands/README.md#31-mcp-server已实现stdio)。
+- **MCP 已接入**：`editor/electron/lib/mcp-server.cjs` 提供 stdio JSON-RPC server；`mcp-stdio.cjs` 由 `ELECTRON_RUN_AS_NODE=1` 启动（不打开 GUI），暴露 21 个 command tools + `list_commands` / `get_project_summary` / `execute_command`，每次调用读取 `project.json`、执行 command、原子写回并返回结构化结果；同时提供 HTTP 传输（GUI 启动后 `http://127.0.0.1:38123/mcp`）。客户端配置见 [editor/src/commands/README.md](editor/src/commands/README.md#31-mcp-server已实现stdio)。
 - 编辑器通过 `actions.executeCommand(name, params)` 调用。测试见 `tests/phase8/commands.test.mjs`、`tests/phase8/mcp.test.mjs`。
 
 ## 本地运行与验证
@@ -124,7 +124,7 @@ pnpm editor:dist:win       # NSIS 安装器（electron-builder 内置目标）
 pnpm editor:installer      # 完整 NSIS 安装包（内置 ffmpeg，推荐；产物 VN-Studio-Setup-<version>-x64.exe）
 
 # 测试与校验
-pnpm test                  # 306 项
+pnpm test                  # 308 项
 pnpm check:schema
 pnpm check:docs
 
@@ -137,7 +137,19 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 
 **独立运行时/导出包使用**：把包或 runtime 目录部署到静态服务器，打开 `index.html`（或 `index.html?game=./game.json`）即可播放；不依赖 Electron/Node/远程资源。
 
-**MCP 接入（AI 编辑项目）**：安装版自带 stdio MCP server（`resources/mcp/mcp-stdio.cjs`，由 `ELECTRON_RUN_AS_NODE=1` 运行，不打开 GUI）。在 MCP 客户端（Claude Desktop / Cursor / Claude Code 等）加入：
+**MCP 接入（AI 编辑项目）**：安装版提供 **HTTP + stdio** 两种传输。
+
+- **HTTP（推荐，免配置命令）**：打开 VN Studio 后，支持 `url` 的客户端直接连 `http://127.0.0.1:38123/mcp`（端口可用 `VN_STUDIO_MCP_HTTP_PORT` 改；`GET /health` 自检）：
+
+```json
+{
+  "mcpServers": {
+    "vn-studio": { "url": "http://127.0.0.1:38123/mcp" }
+  }
+}
+```
+
+- **stdio（Claude Desktop 等）**：用安装目录下的启动器，通过 `ELECTRON_RUN_AS_NODE=1` 运行、不打开 GUI：
 
 ```json
 {
@@ -155,7 +167,7 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 }
 ```
 
-- 提供 16 个 command tools + `list_commands` / `get_project_summary` / `execute_command`；AI 先读 summary 拿节点 id，再调用 `blueprint_*` / `timeline_*`。
+- 提供 21 个 command tools + `list_commands` / `get_project_summary` / `execute_command`；AI 先读 summary 拿节点 id，再调用 `blueprint_*` / `timeline_*` / `scene_*`。
 - MCP 直接读写磁盘上的 `project.json`；如果编辑器正打开同一项目，先保存/关闭，避免编辑器内存中的旧版本覆盖 MCP 的修改。
 - 开发态先跑 `pnpm editor:build`（会生成 `editor/electron/generated/command-bus.cjs` 与 `editor/electron/resources/mcp/mcp-stdio.cjs`）。详细协议与工具说明见 [editor/src/commands/README.md](editor/src/commands/README.md)。
 
@@ -166,13 +178,13 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 ## 发布新版本（GitHub Releases）
 
 1. 修改版本号：根 `package.json` 与 `editor/package.json` 的 `version`（安装包文件名/版本资源取后者）。
-2. 提交并打标签：`git tag v0.1.2 && git push origin v0.1.2`。
+2. 提交并打标签：`git tag v0.1.3 && git push origin v0.1.3`。
 3. GitHub Actions（[build-windows.yml](.github/workflows/build-windows.yml)）会在 `windows-latest` 上安装依赖与 ffmpeg、跑测试、构建两个 NSIS 安装包，并自动创建 Release 上传 `VN-Studio-Setup-*.exe` 与 `INSTALLER-INFO.json`。
 4. 不发布 Release 时，也可以在 Actions 页面手动运行 `Build Windows installer`，从 Artifacts 下载安装包。
 
 ## 验收结果
 
-- 全仓 **306 项** Node 测试通过（schema/引用完整性/项目/素材/媒体/IPC/蓝图/时间轴/表达式/引擎/存档/导出校验与导出器/桌面打包路径/Command bus）。
+- 全仓 **308 项** Node 测试通过（schema/引用完整性/项目/素材/媒体/IPC/蓝图/时间轴/表达式/引擎/存档/导出校验与导出器/桌面打包路径/Command bus）。
 - `pnpm editor:build` 成功；`check:schema` / `check:docs` 通过。
 - 四套 headless 冒烟均通过：编辑器、运行时、导出包；桌面打包冒烟验证 `win-unpacked` 结构、`resources/runtime`/`schema` 与打包态模块加载（零 GUI 启动，因无桌面会话）。
 - 桌面产物：`editor/release/win-unpacked/`、`editor/release/VN-Studio-<version>-x64.zip`、`editor/release/VN-Studio-<version>-portable.exe`、`editor/release/VN-Studio-Setup-<version>.exe`（electron-builder NSIS）、`editor/release/VN-Studio-Setup-<version>-x64.exe`（完整环境 NSIS）；两个安装包均已静默安装 + 卸载验证。

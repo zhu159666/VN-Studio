@@ -15,31 +15,27 @@ const EDITOR = path.join(ROOT, 'editor');
 const BUNDLE = path.join(EDITOR, 'electron', 'generated', 'command-bus.cjs');
 const MCP_STDIO = path.join(EDITOR, 'electron', 'resources', 'mcp', 'mcp-stdio.cjs');
 
-// 测试可独立运行：缺构建产物时先构建 command bus / MCP stdio bundle。
-if (!fs.existsSync(BUNDLE)) {
-  execFileSync(
-    process.execPath,
-    [
-      path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js'),
-      'build',
-      '--config',
-      path.join(EDITOR, 'vite.command-bus.config.mjs'),
-    ],
-    { cwd: EDITOR, stdio: 'ignore' },
-  );
-}
-if (!fs.existsSync(MCP_STDIO)) {
-  execFileSync(
-    process.execPath,
-    [
-      path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js'),
-      'build',
-      '--config',
-      path.join(EDITOR, 'vite.mcp-stdio.config.mjs'),
-    ],
-    { cwd: EDITOR, stdio: 'ignore' },
-  );
-}
+// 测试前重新构建 command bus / MCP stdio bundle，避免 bundle 与源码不同步。
+execFileSync(
+  process.execPath,
+  [
+    path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js'),
+    'build',
+    '--config',
+    path.join(EDITOR, 'vite.command-bus.config.mjs'),
+  ],
+  { cwd: EDITOR, stdio: 'ignore' },
+);
+execFileSync(
+  process.execPath,
+  [
+    path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js'),
+    'build',
+    '--config',
+    path.join(EDITOR, 'vite.mcp-stdio.config.mjs'),
+  ],
+  { cwd: EDITOR, stdio: 'ignore' },
+);
 
 const require = createRequire(import.meta.url);
 const projectStore = require('../../editor/electron/lib/project.cjs');
@@ -65,9 +61,9 @@ async function callTool(context, name, args) {
   );
 }
 
-test('MCP：tools/list 暴露 16 个 command + 3 个辅助 tool', () => {
+test('MCP：tools/list 暴露 21 个 command + 3 个辅助 tool', () => {
   const tools = mcp.buildTools();
-  assert.equal(tools.length, 19);
+  assert.equal(tools.length, 24);
   const names = tools.map((tool) => tool.name);
   assert.ok(names.includes('list_commands'));
   assert.ok(names.includes('get_project_summary'));
@@ -105,7 +101,7 @@ test('MCP：initialize 协商协议版本，tools/list 返回 tools', async () =
   assert.equal(newer.result.protocolVersion, mcp.LATEST_PROTOCOL);
 
   const list = await mcp.handleMessage({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, context);
-  assert.equal(list.result.tools.length, 19);
+  assert.equal(list.result.tools.length, 24);
 
   const unknown = await mcp.handleMessage({ jsonrpc: '2.0', id: 4, method: 'nope' }, context);
   assert.equal(unknown.error.code, -32601);
@@ -283,6 +279,71 @@ test('MCP：独立 mcp-stdio.cjs 可启动、握手并写回项目', async () =>
   }
 });
 
+test('MCP HTTP：initialize / tools/call / 写回项目', async () => {
+  const { dir, file } = await makeProject();
+  const server = await mcp.startHttpMcpServer({ port: 0, defaultProjectPath: file, version: 'test', log: () => {} });
+  try {
+    const health = await fetch(`${server.url.replace(/\/mcp$/, '/health')}`);
+    assert.equal(health.status, 200);
+    const healthJson = await health.json();
+    assert.equal(healthJson.ok, true);
+    assert.equal(healthJson.tools, 24);
+
+    const initResponse = await fetch(server.url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test' } },
+      }),
+    });
+    assert.equal(initResponse.status, 200);
+    const sessionId = initResponse.headers.get('mcp-session-id');
+    assert.ok(sessionId);
+    const initJson = await initResponse.json();
+    assert.equal(initJson.result.protocolVersion, '2025-06-18');
+
+    const callResponse = await fetch(server.url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        'mcp-session-id': sessionId,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'blueprint_createNode', arguments: { type: 'scene', name: 'HTTP 场景' } },
+      }),
+    });
+    assert.equal(callResponse.status, 200);
+    const callJson = await callResponse.json();
+    assert.equal(callJson.result.structuredContent.ok, true);
+    assert.equal(callJson.result.structuredContent.saved, true);
+    const project = readProject(file);
+    assert.equal(project.nodes.length, 2);
+    assert.equal(schema.validateProject(project).ok, true);
+
+    const notification = await fetch(server.url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'mcp-session-id': sessionId },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+    });
+    assert.equal(notification.status, 202);
+
+    const getResponse = await fetch(server.url, { headers: { accept: 'text/event-stream' } });
+    assert.equal(getResponse.status, 405);
+    const deleteResponse = await fetch(server.url, { method: 'DELETE' });
+    assert.equal(deleteResponse.status, 200);
+  } finally {
+    await server.close();
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('MCP：stdio 换行 JSON-RPC 收发正常', async () => {
   const { dir, file } = await makeProject();
   const input = new PassThrough();
@@ -315,8 +376,8 @@ test('MCP：stdio 换行 JSON-RPC 收发正常', async () => {
     input.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`);
     await waitForLines(2);
     assert.equal(lines[0].id, 1);
-    assert.equal(lines[1].result.tools.length, 19);
-    assert.equal(server.context.tools.length, 19);
+    assert.equal(lines[1].result.tools.length, 24);
+    assert.equal(server.context.tools.length, 24);
     server.stop();
   } finally {
     input.destroy();

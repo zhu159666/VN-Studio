@@ -70,6 +70,11 @@ const result = executeCommand(project, 'blueprint.createNode', {
 | `blueprint.updateDialogue` | blueprint | 改 dialogue 节点的台词、说话人、立绘/语音引用、文字速度、自动前进 |
 | `timeline.setDuration` | timeline | 设置时间轴总时长；缩短时若有关键帧超出会拒绝 |
 | `timeline.setLoop` | timeline | 设置时间轴是否循环播放 |
+| `scene.setBackground` | scene | 设置 / 清空场景背景，可调 fit / 位置 / 缩放 / 透明度 |
+| `scene.addSprite` | scene | 添加立绘（自动 `sp_N` id），可调位置 / 层级 / 透明度 |
+| `scene.updateSprite` | scene | 修改场景立绘的位置 / 缩放 / 层级 / 透明度 / 素材 |
+| `scene.removeSprite` | scene | 删除立绘并级联删除对应 sprite 时间轴轨道 |
+| `scene.setBgm` | scene | 设置 / 清空场景 BGM，可调音量 / 循环 / 淡入 |
 
 `listCommands()` 返回每个命令的 `name`、`mcpName`、`category`、`title`、`description`、`inputSchema`。
 
@@ -137,7 +142,7 @@ return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 
 - 主进程实现：[editor/electron/lib/mcp-server.cjs](../../electron/lib/mcp-server.cjs)（最小 JSON-RPC 2.0，无第三方 MCP SDK）。
 - 独立 stdio 启动器：[editor/electron/mcp-stdio.entry.js](../../electron/mcp-stdio.entry.js)，构建为 `resources/mcp/mcp-stdio.cjs`，可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行，不启动 GUI。
-- 工具数量：16 个 command tool + `list_commands` / `get_project_summary` / `execute_command`，共 **19** 个。
+- 工具数量：21 个 command tool + `list_commands` / `get_project_summary` / `execute_command`，共 **24** 个。
 - 每次 `tools/call`：读取 `projectPath`（参数、`--project` 或 `VN_STUDIO_PROJECT`）→ schema 校验 → 执行 command → 成功时原子写回 `project.json` → 返回去掉完整 `project` 的结构化结果（含 `affectedNodeIds` / `affectedTrackIds` / `warnings` / `projectPath` / `saved`）。
 
 MCP 客户端（Windows）配置示例：
@@ -161,6 +166,25 @@ MCP 客户端（Windows）配置示例：
 - 也可以在工具参数里逐个传 `projectPath`，这样启动器不需要 `--project`。
 - `ELECTRON_RUN_AS_NODE=1` 让同一个 exe 以 Node 模式运行启动器（Windows GUI 进程的 stdin 在部分宿主下不可靠）。
 - 构建命令：`pnpm build:mcp`（生成 `electron/generated/command-bus.cjs` 和 `electron/resources/mcp/mcp-stdio.cjs`）；安装包通过 `extraResources` 把后者放到 `resources/mcp/`。
+
+### 3.2 MCP HTTP（免 stdio 配置）
+
+- GUI 启动时自动在 `127.0.0.1:38123` 提供 Streamable HTTP 端点，URL 为 `http://127.0.0.1:38123/mcp`；`GET /health` 可自检。
+- 支持 `url` 的客户端（Cursor / Claude Code / VS Code 等）配置：
+
+```json
+{
+  "mcpServers": {
+    "vn-studio": {
+      "url": "http://127.0.0.1:38123/mcp"
+    }
+  }
+}
+```
+
+- 端口用 `VN_STUDIO_MCP_HTTP_PORT` 覆盖；只监听本机回环地址。编辑器未打开项目时，每个工具调用需要显式传 `projectPath`。
+- headless HTTP：`mcp-stdio.cjs --http --port 38123 --project <project.json>`（可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行）。
+- 同一项目被多个客户端同时编辑时以最后写入为准；建议在编辑器里先保存/关闭项目再让 AI 改。
 
 
 ## 4. 编辑器内的调用路径

@@ -239,6 +239,21 @@ async function start() {
 
   mainWindow = createMainWindow();
 
+  // HTTP MCP：支持 url 的客户端可直接连接（应用需保持运行）。
+  const { startHttpMcpServer } = require('./lib/mcp-server.cjs');
+  const mcpHttpPort = Number(process.env.VN_STUDIO_MCP_HTTP_PORT || 38123);
+  startHttpMcpServer({
+    port: mcpHttpPort,
+    version: app.getVersion(),
+    getDefaultProjectPath: () => {
+      const projectDir = ipc.getCurrentProjectDir();
+      return projectDir ? path.join(projectDir, 'project.json') : null;
+    },
+    log: (line) => console.error(line),
+  })
+    .then((server) => console.error(`[mcp-http] ready: ${server.url}`))
+    .catch((error) => console.error('[mcp-http] 启动失败：', error && error.message ? error.message : error));
+
   if (isSmoke) {
     mainWindow.webContents.once('did-finish-load', () => {
       runSmokeFlow(mainWindow, smokeProject);

@@ -255,9 +255,10 @@ async function callTool(name, args, defaultProjectPath) {
   return toolResult({ ...stripProject(result), projectPath: file, saved: true });
 }
 
-function createContext({ defaultProjectPath = null, version = '0.0.0' } = {}) {
+function createContext({ defaultProjectPath = null, getDefaultProjectPath = null, version = '0.0.0' } = {}) {
   return {
     defaultProjectPath,
+    getDefaultProjectPath,
     version,
     tools: buildTools(),
   };
@@ -300,7 +301,11 @@ async function handleMessage(message, context) {
     const name = params && typeof params.name === 'string' ? params.name : '';
     const args = params && params.arguments && typeof params.arguments === 'object' ? params.arguments : {};
     try {
-      const result = await callTool(name, args, context.defaultProjectPath);
+      const defaultProjectPath =
+        typeof context.getDefaultProjectPath === 'function'
+          ? context.getDefaultProjectPath()
+          : context.defaultProjectPath;
+      const result = await callTool(name, args, defaultProjectPath);
       return jsonRpcResult(id, result);
     } catch (error) {
       return jsonRpcResult(
@@ -397,6 +402,165 @@ function startMcpServer({
   };
 }
 
+/**
+ * Streamable HTTP 传输（MCP 2025-03-26+）：POST /mcp + SSE 兼容的 JSON 响应。
+ * 便于支持 url 的 MCP 客户端直接连接，不需要配置 command/env。
+ */
+function startHttpMcpServer({
+  port = 38123,
+  host = '127.0.0.1',
+  defaultProjectPath = null,
+  getDefaultProjectPath = null,
+  version = '0.0.0',
+  log = (line) => process.stderr.write(`${line}\n`),
+} = {}) {
+  const http = require('node:http');
+  const crypto = require('node:crypto');
+  const context = createContext({ defaultProjectPath, getDefaultProjectPath, version });
+  const sessions = new Map();
+  const CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version',
+    'Access-Control-Expose-Headers': 'Mcp-Session-Id',
+  };
+
+  const sendJson = (res, status, payload, extra = {}) => {
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', ...CORS, ...extra });
+    res.end(JSON.stringify(payload));
+  };
+  const sendEmpty = (res, status, extra = {}) => {
+    res.writeHead(status, { ...CORS, ...extra });
+    res.end();
+  };
+
+  const server = http.createServer((req, res) => {
+    let url;
+    try {
+      url = new URL(req.url || '/', `http://${host}`);
+    } catch {
+      sendJson(res, 400, { error: 'bad url' });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/health') {
+      sendJson(res, 200, {
+        ok: true,
+        name: SERVER_NAME,
+        version,
+        protocolVersions: PROTOCOL_VERSIONS,
+        tools: context.tools.length,
+      });
+      return;
+    }
+    if (url.pathname !== '/mcp') {
+      sendJson(res, 404, { error: 'not found' });
+      return;
+    }
+    if (req.method === 'OPTIONS') {
+      sendEmpty(res, 204);
+      return;
+    }
+    if (req.method === 'GET') {
+      res.setHeader('Allow', 'POST, DELETE, OPTIONS');
+      sendEmpty(res, 405);
+      return;
+    }
+    if (req.method === 'DELETE') {
+      // 终止会话：无状态实现直接返回 200
+      sendEmpty(res, 200);
+      return;
+    }
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST, DELETE, OPTIONS');
+      sendEmpty(res, 405);
+      return;
+    }
+
+    const chunks = [];
+    let total = 0;
+    let aborted = false;
+    req.on('data', (chunk) => {
+      total += chunk.length;
+      if (total > 4 * 1024 * 1024) {
+        aborted = true;
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('error', () => {
+      if (!res.headersSent) sendJson(res, 400, { error: 'request error' });
+    });
+    req.on('end', async () => {
+      if (aborted) {
+        if (!res.headersSent) sendJson(res, 413, { error: 'body too large' });
+        return;
+      }
+      let message;
+      try {
+        message = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      } catch {
+        sendJson(res, 400, jsonRpcError(null, -32700, 'Parse error'));
+        return;
+      }
+
+      const sessionHeader = req.headers['mcp-session-id'];
+      let sessionId = typeof sessionHeader === 'string' && sessionHeader ? sessionHeader : null;
+      const messages = Array.isArray(message) ? message : [message];
+      const responses = [];
+      try {
+        for (const item of messages) {
+          if (item && item.method === 'initialize' && !sessionId) {
+            sessionId = crypto.randomUUID();
+            sessions.set(sessionId, { createdAt: Date.now() });
+          }
+          const response = await handleMessage(item, context);
+          if (response) responses.push(response);
+        }
+      } catch (error) {
+        log(`[mcp-http] handler error: ${error && error.message ? error.message : error}`);
+        sendJson(res, 500, jsonRpcError(null, -32603, 'Internal error'));
+        return;
+      }
+
+      const headers = sessionId ? { 'Mcp-Session-Id': sessionId } : {};
+      if (responses.length === 0) {
+        sendEmpty(res, 202, headers);
+        return;
+      }
+      if (Array.isArray(message)) sendJson(res, 200, responses, headers);
+      else sendJson(res, 200, responses[0], headers);
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      const actualPort = server.address().port;
+      const url = `http://${host}:${actualPort}/mcp`;
+      log(`[mcp-http] listening ${url} (${context.tools.length} tools)`);
+      resolve({
+        url,
+        port: actualPort,
+        host,
+        server,
+        close: () =>
+          new Promise((done) => {
+            server.close(() => done());
+          }),
+      });
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
+  });
+}
+
 module.exports = {
   SERVER_NAME,
   PROTOCOL_VERSIONS,
@@ -406,6 +570,7 @@ module.exports = {
   createContext,
   handleMessage,
   startMcpServer,
+  startHttpMcpServer,
   summarizeProject,
   resolveProjectFile,
   readProjectFile,
