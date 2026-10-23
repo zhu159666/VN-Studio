@@ -11,6 +11,7 @@ const utils = require('./asset-utils.cjs');
 const media = require('./media.cjs');
 const minigame = require('./minigame.cjs');
 const imageProcessing = require('./image-processing.cjs');
+const audioImport = require('./audio-import.cjs');
 
 const MAX_DATA_URL_BYTES = 40 * 1024 * 1024;
 
@@ -583,6 +584,72 @@ async function cleanupFiles(files) {
   for (const file of Array.isArray(files) ? files : []) await unlinkQuiet(file);
 }
 
+/**
+ * Base64 音频导入（MCP import_audio_asset）：写源文件 + 转 ogg + 生成 asset。
+ */
+async function saveImportedAudio({ projectDir, base64Data, role = 'bgm', name } = {}) {
+  const root = requireProjectDir(projectDir);
+  const decoded = audioImport.decodeAudioBase64(base64Data);
+  if (!media.isFfmpegAvailable()) {
+    const error = new Error('当前环境没有可用的 ffmpeg，无法转码音频');
+    error.code = 'E_FFMPEG_UNAVAILABLE';
+    throw error;
+  }
+  const validRole = utils.audioRoleValid(role) ? role : 'bgm';
+  await ensureProjectDirs(root);
+  const id = await allocateAssetId(root, 'aud', [DIRS.audio, DIRS.sourceAudio]);
+  const sourceRel = utils.sourceRelPath('audio', id, decoded.ext);
+  const sourceAbs = utils.safeJoin(root, sourceRel);
+  const finalRel = utils.finalAudioRelPath(id, 'ogg');
+  const finalAbs = utils.safeJoin(root, finalRel);
+  const created = [];
+  try {
+    await fsp.mkdir(path.dirname(sourceAbs), { recursive: true });
+    await fsp.writeFile(sourceAbs, decoded.buffer);
+    created.push(sourceAbs);
+    const sourceDurationMs = await detectAudioDurationMs(sourceAbs, decoded.ext);
+    if (!Number.isInteger(sourceDurationMs) || sourceDurationMs < 1) {
+      throw new Error('无法读取音频时长（文件可能损坏或格式不受支持）');
+    }
+    await media.processAudio({ sourceAbs, outAbs: finalAbs, trim: null, gainDb: 0, format: 'ogg' });
+    created.push(finalAbs);
+    const sourceStat = await fsp.stat(sourceAbs);
+    const finalStat = await fsp.stat(finalAbs);
+    if (!finalStat.size) throw new Error('转码后的音频为空');
+    let finalDurationMs = await detectAudioDurationMs(finalAbs, 'ogg');
+    if (!Number.isInteger(finalDurationMs) || finalDurationMs < 1) finalDurationMs = sourceDurationMs;
+    const cleanName =
+      String(name ?? '')
+        .trim()
+        .slice(0, 200) ||
+      `${validRole === 'bgm' ? 'AI BGM' : validRole === 'sfx' ? 'AI 音效' : 'AI 语音'} ${id.slice(4, 10)}`;
+    const asset = {
+      id,
+      kind: 'audio',
+      name: cleanName,
+      role: validRole,
+      path: finalRel,
+      format: 'ogg',
+      durationMs: finalDurationMs,
+      sizeBytes: finalStat.size,
+      importedAt: nowIso(),
+      trim: null,
+      gainDb: 0,
+      loop: validRole === 'bgm',
+      source: {
+        path: sourceRel,
+        format: decoded.ext,
+        durationMs: sourceDurationMs,
+        sizeBytes: sourceStat.size,
+      },
+    };
+    return { asset, createdFiles: created };
+  } catch (error) {
+    for (const createdPath of created) await unlinkQuiet(createdPath);
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 导入：视频
 // ---------------------------------------------------------------------------
@@ -1031,6 +1098,7 @@ module.exports = {
   importMinigames,
   saveGeneratedAudio,
   saveImportedImage,
+  saveImportedAudio,
   cleanupFiles,
   readDataUrl,
   readText,

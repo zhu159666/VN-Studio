@@ -176,6 +176,23 @@ const IMAGE_TOOL = {
   },
 };
 
+const AUDIO_TOOL = {
+  name: 'import_audio_asset',
+  description:
+    '接收 Base64 音频（WAV/MP3/OGG/FLAC/M4A/AAC），保存原文件并转成 ogg 导入项目素材库；返回 asset_id/duration_ms/path。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['base64_data', 'role'],
+    properties: {
+      base64_data: { type: 'string', minLength: 1 },
+      role: { enum: ['bgm', 'sfx', 'voice'] },
+      name: { type: 'string', maxLength: 200 },
+      projectPath: { type: 'string' },
+    },
+  },
+};
+
 const CREATE_PROJECT_TOOL = {
   name: 'create_project',
   description:
@@ -226,6 +243,7 @@ function buildTools() {
       },
     })),
     IMAGE_TOOL,
+    AUDIO_TOOL,
     {
       name: 'execute_command',
       description:
@@ -383,6 +401,56 @@ async function callTool(name, args, defaultProjectPath) {
           success: false,
           tool: 'import_image_asset',
           error: { code: error.code ?? 'E_IMAGE_IMPORT_FAILED', message: error.message },
+        },
+        { isError: true },
+      );
+    }
+  }
+
+  if (name === 'import_audio_asset') {
+    const file = resolveProjectFile(safeArgs, defaultProjectPath);
+    const project = readProjectFile(file);
+    let saved = null;
+    try {
+      saved = await assets.saveImportedAudio({
+        projectDir: path.dirname(file),
+        base64Data: safeArgs.base64_data,
+        role: safeArgs.role,
+        name: safeArgs.name,
+      });
+      const next = {
+        ...project,
+        assets: {
+          ...project.assets,
+          audio: [...(project.assets?.audio ?? []), saved.asset],
+        },
+      };
+      const checked = validateProjectSafe(next);
+      if (!checked.ok) {
+        throw makeError(`项目校验失败：${JSON.stringify(checked.errors.slice(0, 3))}`, 'E_PROJECT_INVALID');
+      }
+      await writeProjectFile(file, next);
+      return toolResult({
+        success: true,
+        tool: 'import_audio_asset',
+        asset_id: saved.asset.id,
+        path: saved.asset.path,
+        role: saved.asset.role,
+        duration_ms: saved.asset.durationMs,
+        format: saved.asset.format,
+        size_bytes: saved.asset.sizeBytes,
+        source_path: saved.asset.source?.path ?? null,
+        project_path: file,
+        revision: revisionOf(next),
+        asset: saved.asset,
+      });
+    } catch (error) {
+      if (saved?.createdFiles) await assets.cleanupFiles(saved.createdFiles);
+      return toolResult(
+        {
+          success: false,
+          tool: 'import_audio_asset',
+          error: { code: error.code ?? 'E_AUDIO_IMPORT_FAILED', message: error.message },
         },
         { isError: true },
       );

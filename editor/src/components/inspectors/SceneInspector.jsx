@@ -22,6 +22,7 @@ import {
   typedDefaultValue,
 } from './controls';
 import { MaterialFields } from './MaterialFields';
+import { applySpriteAnimationToTimeline, SPRITE_ANIMATIONS } from '../../features/timeline/spriteAnimations';
 import '../../styles/inspector.css';
 
 const BACKGROUND_FITS = [
@@ -87,7 +88,7 @@ function makeSceneVariable(base, patch) {
 // B / B2：立绘与 UI 图片列表（两者结构相同）
 // ---------------------------------------------------------------------------
 
-function SpriteSection({ node, projectDir, kind, assets, updateNode, notify, defaultOpen = true, title, max = 32 }) {
+function SpriteSection({ node, project, projectDir, kind, assets, updateNode, actions, notify, defaultOpen = true, title, max = 32 }) {
   const field = kind === 'ui' ? 'uiImages' : 'sprites';
   const otherField = kind === 'ui' ? 'sprites' : 'uiImages';
   const list = node[field] ?? [];
@@ -139,6 +140,15 @@ function SpriteSection({ node, projectDir, kind, assets, updateNode, notify, def
     updateNode({ [field]: list.filter((_, itemIndex) => itemIndex !== index) });
   };
 
+  const applySpriteAnimation = (item, presetKey) => {
+    const preset = SPRITE_ANIMATIONS.find((animation) => animation.key === presetKey);
+    if (!preset || kind !== 'sprite') return;
+    const existing = project?.timelines?.[node.id] ?? null;
+    const timeline = applySpriteAnimationToTimeline(existing, item, presetKey);
+    actions.setTimeline(node.id, timeline);
+    notify(`已应用动画模板「${preset.label}」，关键帧已写入场景时间轴`, 'success');
+  };
+
   return (
     <Section title={title} badge={`${list.length}/${max}`} defaultOpen={defaultOpen}>
       <SubList
@@ -188,7 +198,18 @@ function SpriteSection({ node, projectDir, kind, assets, updateNode, notify, def
               required
               emptyHint={`素材库中没有${noun}类图片，请先在左栏导入。`}
             />
-            <div className="vn-insp-ctl-grid-2">
+            {kind === 'sprite' ? (
+              <FieldSelect
+                label="动画模板"
+                value=""
+                options={SPRITE_ANIMATIONS.map((animation) => [animation.key, animation.label])}
+                placeholder="选择模板…（生成关键帧）"
+                onChange={(presetKey) => {
+                  if (presetKey) applySpriteAnimation(item, presetKey);
+                }}
+                hint="选择后会在当前场景时间轴生成可继续编辑的关键帧"
+              />
+            ) : null}            <div className="vn-insp-ctl-grid-2">
               <FieldNumber
                 label="x（0–1）"
                 value={item.x ?? 0.5}
@@ -487,10 +508,12 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
         {/* B. 立绘 */}
         <SpriteSection
           node={node}
+          project={project}
           projectDir={projectDir}
           kind="sprite"
           assets={spriteAssets}
           updateNode={updateNode}
+          actions={actions}
           notify={notify}
           title="B · 立绘"
         />
@@ -498,10 +521,12 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
         {/* B2. UI 图片层（可选） */}
         <SpriteSection
           node={node}
+          project={project}
           projectDir={projectDir}
           kind="ui"
           assets={uiImageAssets}
           updateNode={updateNode}
+          actions={actions}
           notify={notify}
           title="B2 · UI 图片层"
           defaultOpen={false}

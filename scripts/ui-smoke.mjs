@@ -544,6 +544,18 @@ async function main() {
     await editorPage.waitForTimeout(800);
     await capture(editorPage, 'chromium-scene-inspector.png');
 
+    // 立绘动画模板：选择后应在场景时间轴生成关键帧
+    const animationSelect = editorPage
+      .locator('.vn-scene-insp select')
+      .filter({ hasText: '淡入（0.8s）' })
+      .first();
+    if ((await animationSelect.count()) === 0) {
+      throw new Error('立绘编辑面板缺少动画模板选择器');
+    }
+    await animationSelect.selectOption('fadeIn');
+    await editorPage.waitForTimeout(600);
+    await capture(editorPage, 'chromium-sprite-animation.png');
+
     // 场景预览小窗：选中场景后出现在画布左下角并自动循环演示
     await editorPage.waitForSelector('.vn-scene-preview canvas');
     await editorPage.waitForTimeout(1600);
@@ -575,8 +587,11 @@ async function main() {
     await capture(editorPage, 'chromium-scene-preview-collapsed.png');
 
     // 时间轴：创建 → 添加立绘轨道 → 双击加关键帧 → 缓动 / 播放
-    await editorPage.getByRole('button', { name: '创建时间轴' }).click();
-    await editorPage.waitForTimeout(700);
+    // 立绘动画模板可能已经创建了时间轴；没有「创建时间轴」按钮时直接复用。
+    if ((await editorPage.getByRole('button', { name: '创建时间轴' }).count()) > 0) {
+      await editorPage.getByRole('button', { name: '创建时间轴' }).click();
+      await editorPage.waitForTimeout(700);
+    }
     await capture(editorPage, 'chromium-timeline.png');
 
     await editorPage.getByRole('button', { name: '+ 轨道' }).click();

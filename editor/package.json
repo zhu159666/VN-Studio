@@ -1,7 +1,7 @@
 {
   "name": "@vn-studio/editor",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "VN Studio — 桌面视觉小说创作套件（Electron + React 编辑器与纯浏览器运行时）",
   "author": "VN Studio Team",
   "type": "module",

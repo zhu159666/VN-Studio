@@ -142,11 +142,12 @@ return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 
 - 主进程实现：[editor/electron/lib/mcp-server.cjs](../../electron/lib/mcp-server.cjs)（最小 JSON-RPC 2.0，无第三方 MCP SDK）。
 - 独立 stdio 启动器：[editor/electron/mcp-stdio.entry.js](../../electron/mcp-stdio.entry.js)，构建为 `resources/mcp/mcp-stdio.cjs`，可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行，不启动 GUI。
-- 默认语义工具（13 个，**AI 主入口**）：
+- 默认语义工具（14 个，**AI 主入口**）：
   - `get_blueprint_summary`：全局概况、节点坐标/出口、悬空端口、孤立节点、断连组件、断链 jump、时间轴、素材列表。
   - `create_scene_node` / `create_dialogue_chain` / `create_branch_node` / `create_choice_node` / `connect_blueprint_nodes` / `configure_scene_stage` / `add_scene_keyframes` / `update_project_settings`。
   - `create_project`：从零创建项目。
   - `import_image_asset`：Base64 图片导入 + 纯色抠像 + 512×1024 / 1920×1080 裁剪。
+  - `import_audio_asset`：Base64 音频（wav/mp3/ogg/flac/m4a/aac）转 ogg 并导入素材库。
   - `execute_command`：底层 21 个 command 的高级逃生口；`VN_MCP_TOOLSET=all` 时还会列出全部 command tool。
   - `list_commands`：列出底层 command。
 - 所有修改类工具成功返回统一信封：`success`、`tool`、`revision`、`project_path`、`affected`（节点/边/邻居/时间轴）、`dangling_ports`、`data`、`warnings`。AI 可直接校验“画”得对不对。
@@ -193,7 +194,7 @@ MCP 客户端（Windows）配置示例：
 - headless HTTP：`mcp-stdio.cjs --http --port 38123 --project <project.json>`（可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行）。
 - 同一项目被多个客户端同时编辑时以最后写入为准；建议在编辑器里先保存/关闭项目再让 AI 改。
 
-### 3.3 素材导入管道（import_image_asset）
+### 3.3 素材导入管道（import_image_asset / import_audio_asset）
 
 ```text
 base64_data → 解码/大小/文件头校验 → ffmpeg（内置）
@@ -210,6 +211,18 @@ base64_data → 解码/大小/文件头校验 → ffmpeg（内置）
 - 失败（base64/尺寸/ffmpeg/项目写回）会清理已写文件并返回结构化错误。
 - 内部 AI 助手复用同一函数，但只写文件、由 renderer 的 `actions.addAssets` 更新项目，避免 main/renderer 双写。
 
+音频（`import_audio_asset`）：
+
+```text
+base64_data → 解码/大小/文件头校验（wav/mp3/ogg/flac/m4a/aac）
+→ 写 assets/.source/audio
+→ ffmpeg 转 ogg → 读取时长
+→ 追加 project.assets.audio → schema 校验 → 原子写回
+→ 返回 { success, asset_id, path, role, duration_ms, revision }
+```
+
+- 最大 20 MB；角色 `bgm` 默认 loop=true，`sfx` / `voice` 默认不循环。
+
 ### 3.4 外部 AI 服务（软件内）
 
 - 设置（开始界面 / 编辑器顶部）→ 外部 AI 服务：Base URL、API Key、模型、生图尺寸、超时。
@@ -221,6 +234,7 @@ base64_data → 解码/大小/文件头校验 → ffmpeg（内置）
 ## 4. 编辑器内的调用路径
 
 - 渲染进程：`controller.actions.executeCommand(name, params)`；成功后会替换项目并标记 dirty（自动保存/手动保存流程不变）。
+- 立绘编辑面板的「动画模板」：`features/timeline/spriteAnimations.js` 生成关键帧，通过 `actions.setTimeline` 写入当前场景时间轴，之后可在时间轴里继续编辑。
 - MCP / AI：通过 `mcp-stdio.cjs` 对磁盘上的 `project.json` 做 headless 操作，不依赖打开的编辑器；每次成功调用后直接写回项目文件。
 - 可选扩展：新增 `commands:list` / `commands:execute` IPC，把主进程收到的 AI 操作转发给渲染进程的当前项目；现有纯函数层无需改动。
 

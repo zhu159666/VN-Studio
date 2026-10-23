@@ -60,7 +60,7 @@ function payload(response) {
 test('MCP 语义工具：默认 tools/list 只暴露高层工具', () => {
   const tools = mcp.buildTools();
   const names = tools.map((tool) => tool.name);
-  assert.equal(tools.length, 13);
+  assert.equal(tools.length, 14);
   assert.ok(names.includes('create_project'));
   assert.ok(names.includes('get_blueprint_summary'));
   assert.ok(names.includes('create_branch_node'));
@@ -85,7 +85,7 @@ test('MCP：initialize 与 tools/list', async () => {
   assert.equal(init.result.protocolVersion, '2025-06-18');
   assert.equal(init.result.serverInfo.name, 'vn-studio');
   const list = await mcp.handleMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, context);
-  assert.equal(list.result.tools.length, 13);
+  assert.equal(list.result.tools.length, 14);
   const unknown = await mcp.handleMessage({ jsonrpc: '2.0', id: 3, method: 'nope' }, context);
   assert.equal(unknown.error.code, -32601);
 });
@@ -233,6 +233,37 @@ test('MCP：import_image_asset 处理图片并写回项目', { skip: !media.isFf
   }
 });
 
+test('MCP：import_audio_asset 转 ogg 并写回项目', { skip: !media.isFfmpegAvailable() }, async () => {
+  const { dir, file } = await makeProject();
+  const sourcePath = path.join(dir, 'source.wav');
+  try {
+    execFileSync(
+      media.FFMPEG,
+      ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1', sourcePath],
+      { stdio: 'ignore', timeout: 60000 },
+    );
+    const base64 = fs.readFileSync(sourcePath).toString('base64');
+    const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
+    const response = await callTool(context, 'import_audio_asset', {
+      base64_data: base64,
+      role: 'bgm',
+      name: 'MCP BGM',
+    });
+    const data = payload(response);
+    assert.equal(data.success, true);
+    assert.match(data.asset_id, /^aud_/);
+    assert.equal(data.role, 'bgm');
+    assert.ok(data.duration_ms > 0);
+    assert.ok(fs.existsSync(path.join(dir, data.path)));
+    const project = readProject(file);
+    assert.equal(project.assets.audio.length, 1);
+    assert.equal(project.assets.audio[0].id, data.asset_id);
+    assert.equal(schema.validateProject(project).ok, true);
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('MCP：空/错误参数返回结构化错误', async () => {
   const { dir, file } = await makeProject();
   try {
@@ -280,7 +311,7 @@ test('MCP HTTP：语义 tools/list 与 initialize', async () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
     });
     const toolsJson = await tools.json();
-    assert.equal(toolsJson.result.tools.length, 13);
+    assert.equal(toolsJson.result.tools.length, 14);
   } finally {
     await server.close();
   }
@@ -309,7 +340,7 @@ test('MCP：stdio 换行 JSON-RPC + 独立 bundle', async () => {
     input.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })}\n`);
     input.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`);
     await waitForLines(2);
-    assert.equal(lines[1].result.tools.length, 13);
+    assert.equal(lines[1].result.tools.length, 14);
     server.stop();
   } finally {
     input.destroy();
