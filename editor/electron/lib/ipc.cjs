@@ -14,6 +14,8 @@ const media = require('./media.cjs');
 const saveStore = require('./saves.cjs');
 const { validateProjectForExport } = require('./validate-project.cjs');
 const { exportProjectWeb } = require('./export-web.cjs');
+const aiConfig = require('./ai-config.cjs');
+const aiImage = require('./ai-image-client.cjs');
 
 let current = { projectDir: null, projectPath: null };
 let smokeStartup = null;
@@ -380,6 +382,39 @@ function registerIpc(options = {}) {
       return { ok: false, error: error?.message || String(error), errors: error?.errors ?? [] };
     }
   });
+
+  ipcMain.handle('ai:get-config', async () => aiConfig.getPublicConfig());
+  ipcMain.handle('ai:set-config', async (_event, patch) => aiConfig.saveConfig(patch ?? {}));
+  ipcMain.handle('ai:test-service', async () => aiConfig.testConnection());
+
+  ipcMain.handle('ai:generate-image', async (_event, payload) =>
+    wrap(async () => {
+      const projectDir = assertCurrentProjectDir(payload?.projectDir);
+      const prompt = String(payload?.prompt ?? '').trim();
+      if (!prompt) throw new Error('prompt 不能为空');
+      const assetType = payload?.assetType === 'background' ? 'background' : 'character';
+      const config = aiConfig.getPublicConfig();
+      const apiKey = aiConfig.getApiKey();
+      if (!config.baseUrl || !apiKey) {
+        const error = new Error('尚未配置外部 AI 服务（Base URL / API Key）');
+        error.code = 'E_AI_NOT_CONFIGURED';
+        throw error;
+      }
+      const generated = await aiImage.generateImage({ ...config, apiKey }, prompt);
+      const saved = await assets.saveImportedImage({
+        projectDir,
+        base64Data: generated.buffer.toString('base64'),
+        assetType,
+        autoRemoveBg: assetType === 'character' && payload?.autoRemoveBg !== false,
+        name: payload?.name,
+      });
+      return {
+        asset: saved.asset,
+        removedBackground: saved.removedBackground,
+        source: generated.source,
+      };
+    }),
+  );
 
   ipcMain.handle('shell:open-path', async (_event, payload) =>
     wrap(async () => {

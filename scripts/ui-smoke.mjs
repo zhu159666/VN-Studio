@@ -363,6 +363,26 @@ function mockBridgeSource({ project, fileMap, assetIds }) {
       removeRecent: async () => ({ ok: true }),
     },
     assets,
+    ai: {
+      getConfig: async () => ({
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-image-1',
+        imageSize: '1024x1024',
+        timeoutMs: 60000,
+        hasApiKey: true,
+        keyPreview: 'sk-...abcd',
+      }),
+      setConfig: async (patch) => ({
+        baseUrl: patch.baseUrl || 'https://api.openai.com/v1',
+        model: patch.model || 'gpt-image-1',
+        imageSize: patch.imageSize || '1024x1024',
+        timeoutMs: patch.timeoutMs || 60000,
+        hasApiKey: true,
+        keyPreview: 'sk-...abcd',
+      }),
+      testService: async () => ({ connected: true, status: 200, message: '连接成功' }),
+      generateImage: async () => ({ ok: true, asset: null }),
+    },
     saves: {
       list: async () => ({ ok: true, saves: SAVES.slice() }),
       get: async ({ kind, slot }) => ({
@@ -439,6 +459,9 @@ async function main() {
     if ((await startPage.getByRole('button', { name: '打开项目' }).count()) === 0) {
       throw new Error('开始界面缺少「打开项目」按钮');
     }
+    if ((await startPage.getByRole('button', { name: '设置' }).count()) === 0) {
+      throw new Error('开始界面缺少「设置」按钮');
+    }
 
     // 明/暗模式切换（开始界面）
     await startPage.locator('.vn-start-status .vn-theme-toggle').click();
@@ -448,6 +471,13 @@ async function main() {
     await capture(startPage, 'chromium-start-light.png');
     await startPage.locator('.vn-start-status .vn-theme-toggle').click();
     await startPage.waitForTimeout(200);
+
+    // 设置 → 外部 AI 服务
+    await startPage.getByRole('button', { name: '设置' }).click();
+    await startPage.waitForSelector('.vn-ai-modal');
+    await capture(startPage, 'chromium-ai-settings.png');
+    await startPage.locator('.vn-ai-close').click();
+    await startPage.waitForSelector('.vn-ai-modal', { state: 'detached' });
 
     await startPage.getByRole('button', { name: /创建项目/ }).first().click();
     await startPage.waitForSelector('.vn-start-modal, [role="dialog"]');
@@ -467,6 +497,14 @@ async function main() {
     if ((await editorPage.getByRole('button', { name: '桌面版' }).count()) === 0) {
       throw new Error('编辑器顶部缺少「桌面版」导出按钮');
     }
+    if ((await editorPage.getByRole('button', { name: 'AI 助手' }).count()) === 0) {
+      throw new Error('编辑器顶部缺少「AI 助手」按钮');
+    }
+    await editorPage.getByRole('button', { name: 'AI 助手' }).click();
+    await editorPage.waitForSelector('.vn-ai-drawer');
+    await capture(editorPage, 'chromium-ai-assistant.png');
+    await editorPage.locator('.vn-ai-drawer .vn-ai-close').click();
+    await editorPage.waitForSelector('.vn-ai-drawer', { state: 'detached' });
 
     // 明/暗模式切换（编辑器）
     await editorPage.locator('.vn-workspace__topbar .vn-theme-toggle').click();

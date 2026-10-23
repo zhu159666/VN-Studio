@@ -22,6 +22,10 @@ const schema = (() => {
     return null;
   }
 })();
+const { TOOL_DEFS: SEMANTIC_TOOL_DEFS, executeSemanticTool } = require('./mcp-semantic-tools.cjs');
+const { buildAffectedSnapshot, buildBlueprintSummary, revisionOf } = require('./blueprint-snapshot.cjs');
+const assets = require('./assets.cjs');
+const projectStore = require('./project.cjs');
 
 function validateProjectSafe(project) {
   if (!schema || typeof schema.validateProject !== 'function') return { ok: true, errors: [] };
@@ -154,82 +158,235 @@ function summarizeProject(project) {
   };
 }
 
-function buildTools() {
-  const bus = getBus();
-  const commands = bus.listCommands();
-  const projectPathProperty = {
+const IMAGE_TOOL = {
+  name: 'import_image_asset',
+  description:
+    '接收 Base64 图片并按 character/background 预设处理（可选纯色背景抠像、裁剪缩放），保存到项目 assets 并更新 project.json；返回 asset_id/path/width/height。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['base64_data', 'asset_type'],
+    properties: {
+      base64_data: { type: 'string', minLength: 1 },
+      asset_type: { enum: ['character', 'background'] },
+      auto_remove_bg: { type: 'boolean', default: true },
+      name: { type: 'string', maxLength: 200 },
+      projectPath: { type: 'string' },
+    },
+  },
+};
+
+const CREATE_PROJECT_TOOL = {
+  name: 'create_project',
+  description:
+    '从零创建 VN Studio 项目（project.json + assets 目录），返回 project_path 与初始蓝图概况；后续工具的 projectPath 使用该路径。',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['project_dir', 'title'],
+    properties: {
+      project_dir: { type: 'string', minLength: 1, description: '绝对路径；不存在时会创建' },
+      title: { type: 'string', minLength: 1, maxLength: 200 },
+      resolution: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['width', 'height'],
+        properties: {
+          width: { type: 'integer', minimum: 320, maximum: 7680 },
+          height: { type: 'integer', minimum: 240, maximum: 4320 },
+        },
+      },
+    },
+  },
+};
+
+function projectPathProperty() {
+  return {
     type: 'string',
     description: '项目目录或 project.json 的绝对路径；省略时使用 --project / VN_STUDIO_PROJECT',
   };
+}
+
+function buildTools() {
+  const bus = getBus();
+  const commands = bus.listCommands();
+  const projectPath = projectPathProperty();
   const tools = [
     {
       name: 'list_commands',
-      description: '列出 VN Studio 编辑器 command bus 支持的全部操作（名称、说明、inputSchema）。',
+      description: '列出底层 command bus（高级逃生口 execute_command 使用）。通常不需要调用。',
       inputSchema: { type: 'object', additionalProperties: false, properties: {} },
     },
-    {
-      name: 'get_project_summary',
-      description: '读取项目摘要：节点/连线/时间轴/素材/变量，便于 AI 获知节点 id 后再调用编辑命令。',
+    CREATE_PROJECT_TOOL,
+    ...SEMANTIC_TOOL_DEFS.map((tool) => ({
+      ...tool,
       inputSchema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: { projectPath: projectPathProperty },
+        ...tool.inputSchema,
+        properties: { ...(tool.inputSchema.properties ?? {}), projectPath },
       },
-    },
+    })),
+    IMAGE_TOOL,
     {
       name: 'execute_command',
       description:
-        '通用入口：按 command 名执行任意一个 command bus 操作。参数放在 params 中，会被对应 command 的 inputSchema 校验。',
+        '高级逃生口：执行任意底层 command。优先使用语义工具；只有语义工具覆盖不到的操作才用它。',
       inputSchema: {
         type: 'object',
         additionalProperties: false,
         required: ['command'],
         properties: {
-          command: { enum: commands.map((item) => item.mcpName) },
+          command: { enum: commands.map((command) => command.mcpName) },
           params: { type: 'object' },
-          projectPath: projectPathProperty,
+          projectPath,
         },
       },
     },
   ];
 
-  for (const command of commands) {
-    tools.push({
-      name: command.mcpName,
-      description: `${command.title}。${command.description}`,
-      inputSchema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          ...(command.inputSchema.properties ?? {}),
-          projectPath: projectPathProperty,
+  if (process.env.VN_MCP_TOOLSET === 'all') {
+    for (const command of commands) {
+      tools.push({
+        name: command.mcpName,
+        description: `${command.title}。${command.description}`,
+        inputSchema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            ...(command.inputSchema.properties ?? {}),
+            projectPath,
+          },
+          required: [...(command.inputSchema.required ?? [])],
         },
-        required: [...(command.inputSchema.required ?? [])],
-      },
-      _commandName: command.name,
-    });
+        _commandName: command.name,
+      });
+    }
   }
   return tools;
 }
 
-function stripProject(result) {
-  if (!result || typeof result !== 'object') return result;
-  const { project, ...rest } = result;
-  void project;
-  return rest;
+function mutationPayload({ tool, file, project, result, extra = {} }) {
+  const snapshot = buildAffectedSnapshot(project, {
+    nodeIds: result?.affectedNodeIds ?? [],
+    trackIds: result?.affectedTrackIds ?? [],
+  });
+  return {
+    success: true,
+    tool,
+    revision: revisionOf(project),
+    project_path: file,
+    affected: snapshot,
+    dangling_ports: snapshot.dangling_ports,
+    data: result?.data ?? null,
+    warnings: result?.warnings ?? [],
+    ...extra,
+  };
 }
 
 async function callTool(name, args, defaultProjectPath) {
   const bus = getBus();
   const safeArgs = args && typeof args === 'object' ? args : {};
   if (name === 'list_commands') {
-    return toolResult({ ok: true, commands: bus.listCommands() });
+    return toolResult({ success: true, commands: bus.listCommands() });
   }
 
-  if (name === 'get_project_summary') {
+  if (name === 'create_project') {
+    if (typeof safeArgs.project_dir !== 'string' || !path.isAbsolute(safeArgs.project_dir)) {
+      throw makeError('project_dir 必须是绝对路径', 'E_PROJECT_DIR');
+    }
+    const projectDir = path.resolve(safeArgs.project_dir);
+    const projectFile = path.join(projectDir, 'project.json');
+    if (fs.existsSync(projectFile)) throw makeError(`项目已存在：${projectFile}`, 'E_PROJECT_EXISTS');
+    fs.mkdirSync(projectDir, { recursive: true });
+    for (const dir of [
+      'assets/images',
+      'assets/audio',
+      'assets/videos',
+      'assets/minigames',
+      'assets/.source/images',
+      'assets/.source/audio',
+      'saves',
+    ]) {
+      fs.mkdirSync(path.join(projectDir, dir), { recursive: true });
+    }
+    const project = projectStore.defaultProject({ title: safeArgs.title });
+    if (safeArgs.resolution) {
+      project.settings = { ...project.settings, resolution: safeArgs.resolution };
+    }
+    const checked = validateProjectSafe(project);
+    if (!checked.ok) throw makeError(`项目校验失败：${JSON.stringify(checked.errors.slice(0, 3))}`, 'E_PROJECT_INVALID');
+    await writeProjectFile(projectFile, project);
+    return toolResult({
+      success: true,
+      tool: 'create_project',
+      project_path: projectFile,
+      revision: revisionOf(project),
+      summary: buildBlueprintSummary(project),
+    });
+  }
+
+  if (name === 'get_blueprint_summary' || name === 'get_project_summary') {
     const file = resolveProjectFile(safeArgs, defaultProjectPath);
     const project = readProjectFile(file);
-    return toolResult({ ok: true, projectPath: file, summary: summarizeProject(project) });
+    return toolResult({
+      success: true,
+      tool: 'get_blueprint_summary',
+      project_path: file,
+      revision: revisionOf(project),
+      summary: buildBlueprintSummary(project, { includeEdges: Boolean(safeArgs.include_edges) }),
+    });
+  }
+
+  if (name === 'import_image_asset') {
+    const file = resolveProjectFile(safeArgs, defaultProjectPath);
+    const project = readProjectFile(file);
+    let saved = null;
+    try {
+      saved = await assets.saveImportedImage({
+        projectDir: path.dirname(file),
+        base64Data: safeArgs.base64_data,
+        assetType: safeArgs.asset_type,
+        autoRemoveBg: safeArgs.auto_remove_bg !== false,
+        name: safeArgs.name,
+      });
+      const next = {
+        ...project,
+        assets: {
+          ...project.assets,
+          images: [...(project.assets?.images ?? []), saved.asset],
+        },
+      };
+      const checked = validateProjectSafe(next);
+      if (!checked.ok) {
+        throw makeError(`项目校验失败：${JSON.stringify(checked.errors.slice(0, 3))}`, 'E_PROJECT_INVALID');
+      }
+      await writeProjectFile(file, next);
+      return toolResult({
+        success: true,
+        tool: 'import_image_asset',
+        asset_id: saved.asset.id,
+        path: saved.asset.path,
+        width: saved.asset.width,
+        height: saved.asset.height,
+        role: saved.asset.role,
+        format: saved.asset.format,
+        size_bytes: saved.asset.sizeBytes,
+        source_path: saved.asset.source?.path ?? null,
+        removed_background: saved.removedBackground,
+        project_path: file,
+        revision: revisionOf(next),
+        asset: saved.asset,
+      });
+    } catch (error) {
+      if (saved?.createdFiles) await assets.cleanupFiles(saved.createdFiles);
+      return toolResult(
+        {
+          success: false,
+          tool: 'import_image_asset',
+          error: { code: error.code ?? 'E_IMAGE_IMPORT_FAILED', message: error.message },
+        },
+        { isError: true },
+      );
+    }
   }
 
   if (name === 'execute_command') {
@@ -238,22 +395,56 @@ async function callTool(name, args, defaultProjectPath) {
     const file = resolveProjectFile(safeArgs, defaultProjectPath);
     const project = readProjectFile(file);
     const result = bus.executeCommand(project, command, params);
-    if (!result.ok) return toolResult(result, { isError: true });
+    if (!result.ok) return toolResult({ success: false, tool: name, error: result.error }, { isError: true });
     await writeProjectFile(file, result.project);
-    return toolResult({ ...stripProject(result), projectPath: file, saved: true });
+    return toolResult(
+      mutationPayload({ tool: name, file, project: result.project, result, extra: { command: result.command } }),
+    );
   }
 
-  const tool = buildTools().find((item) => item.name === name && item._commandName);
-  if (!tool) throw makeError(`未知 MCP tool：${name}`, 'E_UNKNOWN_TOOL');
+  const semantic = SEMANTIC_TOOL_DEFS.find((tool) => tool.name === name);
+  if (semantic) {
+    const file = resolveProjectFile(safeArgs, defaultProjectPath);
+    const project = readProjectFile(file);
+    const params = { ...safeArgs };
+    delete params.projectPath;
+    delete params.include_edges;
+    try {
+      const result = executeSemanticTool(name, project, params, bus, (current, command, commandParams) =>
+        bus.executeCommand(current, command, commandParams),
+      );
+      if (result.readOnly) {
+        return toolResult({
+          success: true,
+          tool: name,
+          project_path: file,
+          revision: revisionOf(project),
+          summary: result.data,
+          warnings: result.warnings ?? [],
+        });
+      }
+      await writeProjectFile(file, result.project);
+      return toolResult(mutationPayload({ tool: name, file, project: result.project, result }));
+    } catch (error) {
+      return toolResult(
+        { success: false, tool: name, error: { code: error.code ?? 'E_TOOL_FAILED', message: error.message } },
+        { isError: true },
+      );
+    }
+  }
+
+  const advanced = buildTools().find((item) => item.name === name && item._commandName);
+  if (!advanced) throw makeError(`未知 MCP tool：${name}`, 'E_UNKNOWN_TOOL');
   const file = resolveProjectFile(safeArgs, defaultProjectPath);
   const project = readProjectFile(file);
   const params = { ...safeArgs };
   delete params.projectPath;
-  const result = bus.executeCommand(project, tool._commandName, params);
-  if (!result.ok) return toolResult(result, { isError: true });
+  const result = bus.executeCommand(project, advanced._commandName, params);
+  if (!result.ok) return toolResult({ success: false, tool: name, error: result.error }, { isError: true });
   await writeProjectFile(file, result.project);
-  return toolResult({ ...stripProject(result), projectPath: file, saved: true });
+  return toolResult(mutationPayload({ tool: name, file, project: result.project, result }));
 }
+
 
 function createContext({ defaultProjectPath = null, getDefaultProjectPath = null, version = '0.0.0' } = {}) {
   return {
@@ -482,7 +673,7 @@ function startHttpMcpServer({
     let aborted = false;
     req.on('data', (chunk) => {
       total += chunk.length;
-      if (total > 4 * 1024 * 1024) {
+      if (total > 32 * 1024 * 1024) {
         aborted = true;
         req.destroy();
         return;

@@ -10,6 +10,7 @@ const path = require('path');
 const utils = require('./asset-utils.cjs');
 const media = require('./media.cjs');
 const minigame = require('./minigame.cjs');
+const imageProcessing = require('./image-processing.cjs');
 
 const MAX_DATA_URL_BYTES = 40 * 1024 * 1024;
 
@@ -502,6 +503,87 @@ async function saveGeneratedAudio({ projectDir, name, role, wavBase64, durationM
 }
 
 // ---------------------------------------------------------------------------
+// 图片导入管道（MCP / 内部 AI 助手共用）
+// ---------------------------------------------------------------------------
+
+/**
+ * 将 Base64 图片处理后写入素材目录，返回 asset 记录（不写 project.json）。
+ * @param {{projectDir:string, base64Data:string, assetType:'character'|'background', autoRemoveBg?:boolean, name?:string}} options
+ */
+async function saveImportedImage({ projectDir, base64Data, assetType, autoRemoveBg = true, name } = {}) {
+  const root = requireProjectDir(projectDir);
+  const decoded = imageProcessing.decodeBase64(base64Data);
+  const processed = await imageProcessing.processImportedImage({
+    buffer: decoded.buffer,
+    assetType,
+    autoRemoveBg,
+  });
+
+  await ensureProjectDirs(root);
+  const idDirs = [DIRS.images, DIRS.sourceImages];
+  const id = await allocateAssetId(root, 'img', idDirs);
+  const sourceRel = utils.sourceRelPath('images', id, decoded.ext);
+  const sourceAbs = utils.safeJoin(root, sourceRel);
+  const finalRel = utils.finalImageRelPath(id, 'png');
+  const finalAbs = utils.safeJoin(root, finalRel);
+  const created = [];
+  try {
+    await fsp.mkdir(path.dirname(sourceAbs), { recursive: true });
+    await fsp.writeFile(sourceAbs, decoded.buffer);
+    created.push(sourceAbs);
+    await fsp.mkdir(path.dirname(finalAbs), { recursive: true });
+    await fsp.writeFile(finalAbs, processed.buffer);
+    created.push(finalAbs);
+    const sourceStat = await fsp.stat(sourceAbs);
+    const finalStat = await fsp.stat(finalAbs);
+    const cleanName =
+      String(name ?? '')
+        .trim()
+        .slice(0, 200) || `${assetType === 'character' ? 'AI 立绘' : 'AI 背景'} ${id.slice(4, 10)}`;
+    const asset = {
+      id,
+      kind: 'image',
+      name: cleanName,
+      role: processed.role,
+      path: finalRel,
+      width: processed.width,
+      height: processed.height,
+      format: 'png',
+      sizeBytes: finalStat.size,
+      importedAt: nowIso(),
+      edit: {
+        crop: null,
+        removeBackground: processed.removedBackground
+          ? { color: processed.keyColor, tolerance: 0.22, softness: 0 }
+          : null,
+        adjustments: { brightness: 0, contrast: 0 },
+      },
+      source: {
+        path: sourceRel,
+        format: decoded.ext,
+        width: processed.sourceWidth,
+        height: processed.sourceHeight,
+        sizeBytes: sourceStat.size,
+      },
+    };
+    return {
+      asset,
+      createdFiles: created,
+      removedBackground: processed.removedBackground,
+      keyColor: processed.keyColor,
+    };
+  } catch (error) {
+    for (const createdPath of created) await unlinkQuiet(createdPath);
+    throw error;
+  }
+}
+
+/** 清理导入失败时已写入的文件（供 MCP 回滚）。 */
+async function cleanupFiles(files) {
+  for (const file of Array.isArray(files) ? files : []) await unlinkQuiet(file);
+}
+
+// ---------------------------------------------------------------------------
 // 导入：视频
 // ---------------------------------------------------------------------------
 
@@ -948,6 +1030,8 @@ module.exports = {
   importVideos,
   importMinigames,
   saveGeneratedAudio,
+  saveImportedImage,
+  cleanupFiles,
   readDataUrl,
   readText,
   assetUrl,

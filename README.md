@@ -43,7 +43,7 @@ runtime/                      纯浏览器运行时（原生 ESM + Canvas/DOM）
   runtime.js / storage.js / runtime.css / index.html
   CONTRACT-PHASE5.md
 schema/                       schema.json（66 个 $defs）+ FIELDS.md
-assets/、saves/、examples/、tests/（308 项）
+assets/、saves/、examples/、tests/（312 项）
 scripts/                      schema/文档校验、UI/运行时/导出/桌面冒烟
 ```
 
@@ -100,8 +100,13 @@ scripts/                      schema/文档校验、UI/运行时/导出/桌面�
 - `editor/src/commands/` 是纯逻辑命令总线（不依赖 React / DOM / Electron），为把编辑器操作暴露给 MCP / AI 做准备。
 - 共 **21 个 command**：蓝图节点创建 / 连线 / 出口配置（增/改/删/默认出口）、节点删除 / 连线删除 / 开始节点 / 对话内容、时间轴关键帧（增/改/删）、轨道删除、时间轴时长与循环、场景背景 / 立绘 / BGM 配置。
 - 每个 command 都有 JSON Schema `inputSchema` 与描述；`listCommands()` / `commandsToMcpTools()` 可直接映射成 MCP tools。参数只接受 JSON 可序列化类型，执行返回统一结构：`ok`、`command`、`affectedNodeIds`、`affectedTrackIds`、`warnings`、`data`、`project`（成功时）或 `error.code/message`（失败时，不抛异常）。
-- **MCP 已接入**：`editor/electron/lib/mcp-server.cjs` 提供 stdio JSON-RPC server；`mcp-stdio.cjs` 由 `ELECTRON_RUN_AS_NODE=1` 启动（不打开 GUI），暴露 21 个 command tools + `list_commands` / `get_project_summary` / `execute_command`，每次调用读取 `project.json`、执行 command、原子写回并返回结构化结果；同时提供 HTTP 传输（GUI 启动后 `http://127.0.0.1:38123/mcp`）。客户端配置见 [editor/src/commands/README.md](editor/src/commands/README.md#31-mcp-server已实现stdio)。
+- **MCP 已接入**：`editor/electron/lib/mcp-server.cjs` 提供 stdio / HTTP 两种传输。默认只暴露 **13 个面向 AI 的语义工具**（`get_blueprint_summary`、`create_scene_node`、`create_dialogue_chain`、`create_branch_node`、`create_choice_node`、`configure_scene_stage`、`add_scene_keyframes`、`update_project_settings`、`connect_blueprint_nodes`、`create_project`、`import_image_asset` 等），所有修改操作返回**受影响区域结构化快照**（节点坐标/出口/连线/悬空端口）；底层 21 个 command 通过 `execute_command` 逃生口调用（`VN_MCP_TOOLSET=all` 可恢复旧工具列表）。
 - 编辑器通过 `actions.executeCommand(name, params)` 调用。测试见 `tests/phase8/commands.test.mjs`、`tests/phase8/mcp.test.mjs`。
+
+**外部 AI 助手（内部生图）**：
+- 设置（开始界面 / 编辑器顶部）→「外部 AI 服务」：OpenAI 兼容的 Base URL、API Key、模型、生图尺寸、超时；API Key 用 Electron safeStorage 加密保存在 userData，不写入项目。
+- 编辑器顶部「AI 助手」：输入提示词选择立绘/背景，生成后自动调用与 MCP 相同的 `saveImportedImage` 管道（去背景、512×1024 / 1920×1080 裁剪），再导入素材库。
+- 外部 Agent 通过 MCP 时不需要这里的 API 配置：Agent 自己生图后调用 `import_image_asset(base64_data, asset_type, auto_remove_bg)`。
 
 **打开项目 / 桌面版游玩**：
 - 开始界面右上角新增「打开项目」，可直接选择已有 `project.json`（此前只有创建项目与最近项目）。
@@ -129,7 +134,7 @@ pnpm editor:dist:win       # NSIS 安装器（electron-builder 内置目标）
 pnpm editor:installer      # 完整 NSIS 安装包（内置 ffmpeg，推荐；产物 VN-Studio-Setup-<version>-x64.exe）
 
 # 测试与校验
-pnpm test                  # 308 项
+pnpm test                  # 312 项
 pnpm check:schema
 pnpm check:docs
 
@@ -172,7 +177,7 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 }
 ```
 
-- 提供 21 个 command tools + `list_commands` / `get_project_summary` / `execute_command`；AI 先读 summary 拿节点 id，再调用 `blueprint_*` / `timeline_*` / `scene_*`。
+- 提供 13 个语义工具（含 `get_blueprint_summary` / `create_branch_node` / `create_dialogue_chain` / `import_image_asset`）；AI 先读 summary 拿节点 id 与悬空端口，再调用语义工具，每个修改工具都会返回受影响区域快照。
 - MCP 直接读写磁盘上的 `project.json`；如果编辑器正打开同一项目，先保存/关闭，避免编辑器内存中的旧版本覆盖 MCP 的修改。
 - 开发态先跑 `pnpm editor:build`（会生成 `editor/electron/generated/command-bus.cjs` 与 `editor/electron/resources/mcp/mcp-stdio.cjs`）。详细协议与工具说明见 [editor/src/commands/README.md](editor/src/commands/README.md)。
 
@@ -189,7 +194,7 @@ pnpm smoke:desktop         # 重新打 dir 包 + 打包态路径/依赖自检
 
 ## 验收结果
 
-- 全仓 **308 项** Node 测试通过（schema/引用完整性/项目/素材/媒体/IPC/蓝图/时间轴/表达式/引擎/存档/导出校验与导出器/桌面打包路径/Command bus）。
+- 全仓 **312 项** Node 测试通过（schema/引用完整性/项目/素材/媒体/IPC/蓝图/时间轴/表达式/引擎/存档/导出校验与导出器/桌面打包路径/Command bus/语义 MCP/图片导入/外部 AI）。
 - `pnpm editor:build` 成功；`check:schema` / `check:docs` 通过。
 - 四套 headless 冒烟均通过：编辑器、运行时、导出包；桌面打包冒烟验证 `win-unpacked` 结构、`resources/runtime`/`schema` 与打包态模块加载（零 GUI 启动，因无桌面会话）。
 - 桌面产物：`editor/release/win-unpacked/`、`editor/release/VN-Studio-<version>-x64.zip`、`editor/release/VN-Studio-<version>-portable.exe`、`editor/release/VN-Studio-Setup-<version>.exe`（electron-builder NSIS）、`editor/release/VN-Studio-Setup-<version>-x64.exe`（完整环境 NSIS）；两个安装包均已静默安装 + 卸载验证。

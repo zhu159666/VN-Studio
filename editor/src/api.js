@@ -77,6 +77,13 @@ export const assetsApi = {
   remove: (payload) => invoke(() => bridge().assets.remove(payload)),
 };
 
+export const aiApi = {
+  getConfig: () => invoke(() => bridge().ai.getConfig()),
+  setConfig: (patch) => invoke(() => bridge().ai.setConfig(patch)),
+  testService: () => invoke(() => bridge().ai.testService()),
+  generateImage: (payload) => invoke(() => bridge().ai.generateImage(payload)),
+};
+
 export const savesApi = {
   list: (payload) => invoke(() => bridge().saves.list(payload)),
   get: (payload) => invoke(() => bridge().saves.get(payload)),

@@ -138,12 +138,19 @@ return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 - `executeCommand` 同时接受点号名 `blueprint.createNode` 和 MCP 下划线名 `blueprint_createNode`，`result.command` 始终是点号规范名。
 - MCP 服务端负责：读取 `project.json` → 执行 → 成功时把 `result.project` 写回 → 返回 `result`（同时返回 `content` 文本与 `structuredContent`）。
 
-### 3.1 MCP server（已实现，stdio）
+### 3.1 MCP server（已实现，stdio / HTTP）
 
 - 主进程实现：[editor/electron/lib/mcp-server.cjs](../../electron/lib/mcp-server.cjs)（最小 JSON-RPC 2.0，无第三方 MCP SDK）。
 - 独立 stdio 启动器：[editor/electron/mcp-stdio.entry.js](../../electron/mcp-stdio.entry.js)，构建为 `resources/mcp/mcp-stdio.cjs`，可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行，不启动 GUI。
-- 工具数量：21 个 command tool + `list_commands` / `get_project_summary` / `execute_command`，共 **24** 个。
-- 每次 `tools/call`：读取 `projectPath`（参数、`--project` 或 `VN_STUDIO_PROJECT`）→ schema 校验 → 执行 command → 成功时原子写回 `project.json` → 返回去掉完整 `project` 的结构化结果（含 `affectedNodeIds` / `affectedTrackIds` / `warnings` / `projectPath` / `saved`）。
+- 默认语义工具（13 个，**AI 主入口**）：
+  - `get_blueprint_summary`：全局概况、节点坐标/出口、悬空端口、孤立节点、断连组件、断链 jump、时间轴、素材列表。
+  - `create_scene_node` / `create_dialogue_chain` / `create_branch_node` / `create_choice_node` / `connect_blueprint_nodes` / `configure_scene_stage` / `add_scene_keyframes` / `update_project_settings`。
+  - `create_project`：从零创建项目。
+  - `import_image_asset`：Base64 图片导入 + 纯色抠像 + 512×1024 / 1920×1080 裁剪。
+  - `execute_command`：底层 21 个 command 的高级逃生口；`VN_MCP_TOOLSET=all` 时还会列出全部 command tool。
+  - `list_commands`：列出底层 command。
+- 所有修改类工具成功返回统一信封：`success`、`tool`、`revision`、`project_path`、`affected`（节点/边/邻居/时间轴）、`dangling_ports`、`data`、`warnings`。AI 可直接校验“画”得对不对。
+- 每次 `tools/call`：读取 `projectPath`（参数、`--project` 或 `VN_STUDIO_PROJECT`）→ schema 校验 → 执行语义工具/command → 成功时原子写回 `project.json`。
 
 MCP 客户端（Windows）配置示例：
 
@@ -185,6 +192,30 @@ MCP 客户端（Windows）配置示例：
 - 端口用 `VN_STUDIO_MCP_HTTP_PORT` 覆盖；只监听本机回环地址。编辑器未打开项目时，每个工具调用需要显式传 `projectPath`。
 - headless HTTP：`mcp-stdio.cjs --http --port 38123 --project <project.json>`（可由 Node 或 `ELECTRON_RUN_AS_NODE=1` 运行）。
 - 同一项目被多个客户端同时编辑时以最后写入为准；建议在编辑器里先保存/关闭项目再让 AI 改。
+
+### 3.3 素材导入管道（import_image_asset）
+
+```text
+base64_data → 解码/大小/文件头校验 → ffmpeg（内置）
+  ├─ character + auto_remove_bg：采样边缘主色 → colorkey 透明化
+  ├─ cover 裁剪 + 缩放：512×1024 / 1920×1080
+  └─ 输出 PNG
+→ 写 assets/.source/images + assets/images
+→ 追加 project.assets.images → schema 校验 → 原子写回
+→ 返回 { success, asset_id, path, width, height, role, revision }
+```
+
+- 图片最大 20 MB；只支持 PNG/JPEG/WebP。
+- 立绘输出带 alpha 的 PNG；背景输出 1920×1080 PNG。
+- 失败（base64/尺寸/ffmpeg/项目写回）会清理已写文件并返回结构化错误。
+- 内部 AI 助手复用同一函数，但只写文件、由 renderer 的 `actions.addAssets` 更新项目，避免 main/renderer 双写。
+
+### 3.4 外部 AI 服务（软件内）
+
+- 设置（开始界面 / 编辑器顶部）→ 外部 AI 服务：Base URL、API Key、模型、生图尺寸、超时。
+- API Key 用 Electron `safeStorage` 加密保存在 `userData/ai-service.json`，不写入 `project.json`。
+- 编辑器「AI 助手」→ `ai:generate-image` IPC → OpenAI 兼容 `POST {baseUrl}/images/generations` → 图片 buffer → `saveImportedImage` → renderer 加入素材库并预览。
+- 外部 Agent 走 MCP 时不需要这里的配置：Agent 自己生图，再调用 `import_image_asset`。
 
 
 ## 4. 编辑器内的调用路径

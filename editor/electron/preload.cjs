@@ -55,4 +55,10 @@ contextBridge.exposeInMainWorld('vnStudio', {
     desktop: (payload) => invoke('export:desktop', payload),
     openPath: (payload) => invoke('shell:open-path', payload),
   },
+  ai: {
+    getConfig: () => invoke('ai:get-config'),
+    setConfig: (patch) => invoke('ai:set-config', patch),
+    testService: () => invoke('ai:test-service'),
+    generateImage: (payload) => invoke('ai:generate-image', payload),
+  },
 });

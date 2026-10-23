@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ThemeToggle from '../components/ThemeToggle';
+import SettingsModal from '../components/SettingsModal';
 import '../styles/start.css';
 
 /** 分辨率预设（自定义范围与 schema settings.resolution 一致） */
@@ -133,6 +134,7 @@ export default function StartScreen({
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const titleRef = useRef(null);
 
   const recent = Array.isArray(recentProjects) ? recentProjects : [];
@@ -295,6 +297,14 @@ export default function StartScreen({
             title="打开已有项目（选择 project.json）"
           >
             打开项目
+          </button>
+          <button
+            type="button"
+            className="vn-start-open-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="设置（外部 AI 服务）"
+          >
+            设置
           </button>
           <ThemeToggle compact />
           <span className="vn-start-version" title="编辑器版本">
@@ -588,6 +598,8 @@ export default function StartScreen({
           </div>
         </div>
       )}
+
+      {settingsOpen ? <SettingsModal onClose={() => setSettingsOpen(false)} /> : null}
     </div>
   );
 }

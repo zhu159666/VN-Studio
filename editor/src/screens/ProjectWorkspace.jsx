@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { assetsApi } from '../api';
+import AIAssistantPanel from '../components/AIAssistantPanel';
 import AssetPanel from '../components/AssetPanel';
 import AudioStudioModal from '../components/AudioStudioModal';
 import InspectorPanel from '../components/InspectorPanel';
+import SettingsModal from '../components/SettingsModal';
 import ThemeToggle from '../components/ThemeToggle';
 import EdgeInspector from '../components/inspectors/EdgeInspector';
 import NodeInspector from '../components/inspectors/NodeInspector';
@@ -167,6 +169,8 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
   const [timelineHeight, setTimelineHeight] = useState(layout.timelineHeight ?? 200);
   const [rightCollapsed, setRightCollapsed] = useState(Boolean(layout.rightCollapsed));
   const [audioStudioOpen, setAudioStudioOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
 
   useEffect(() => {
     if (!openAudioStudio) return;
@@ -418,6 +422,12 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
         </div>
         <div className="vn-topbar__right">
           <ThemeToggle compact />
+          <button type="button" className="vn-btn vn-btn--ghost" onClick={() => setAiAssistantOpen(true)} title="AI 助手：调用外部生图服务">
+            AI 助手
+          </button>
+          <button type="button" className="vn-btn vn-btn--ghost" onClick={() => setSettingsOpen(true)} title="设置（外部 AI 服务）">
+            设置
+          </button>
           <button type="button" className="vn-btn" onClick={() => actions.saveNow()} disabled={saving}>
             保存
           </button>
@@ -608,6 +618,27 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
           projectDir={projectDir}
           notify={notify}
           onClose={() => setAudioStudioOpen(false)}
+          onCreated={(asset) => {
+            actions.addAssets([asset]);
+            setSelectedAssetId(asset.id);
+            setSelectedNodeId(null);
+            setSelectedEdgeId(null);
+            setActiveTab('asset');
+            actions.updateEditor({ selectedAssetId: asset.id });
+          }}
+        />
+      ) : null}
+
+      {settingsOpen ? (
+        <SettingsModal notify={notify} onClose={() => setSettingsOpen(false)} />
+      ) : null}
+
+      {aiAssistantOpen ? (
+        <AIAssistantPanel
+          projectDir={projectDir}
+          notify={notify}
+          onClose={() => setAiAssistantOpen(false)}
+          onOpenSettings={() => setSettingsOpen(true)}
           onCreated={(asset) => {
             actions.addAssets([asset]);
             setSelectedAssetId(asset.id);

@@ -1,6 +1,6 @@
 {
   "name": "vn-studio",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "桌面端视觉小说创作套件：Electron + React 编辑器 / 纯浏览器运行时",

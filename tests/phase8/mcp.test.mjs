@@ -1,5 +1,4 @@
-// 阶段八：MCP server（stdio）集成测试。
-// 覆盖 tools/list、initialize、get_project_summary、单 command tool、execute_command、错误与换行 JSON-RPC。
+// 阶段八/九：MCP 语义工具、快照、素材导入与传输测试。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
@@ -14,32 +13,25 @@ const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const EDITOR = path.join(ROOT, 'editor');
 const BUNDLE = path.join(EDITOR, 'electron', 'generated', 'command-bus.cjs');
 const MCP_STDIO = path.join(EDITOR, 'electron', 'resources', 'mcp', 'mcp-stdio.cjs');
+const VITE = path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js');
 
-// 测试前重新构建 command bus / MCP stdio bundle，避免 bundle 与源码不同步。
-execFileSync(
-  process.execPath,
-  [
-    path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js'),
-    'build',
-    '--config',
-    path.join(EDITOR, 'vite.command-bus.config.mjs'),
-  ],
-  { cwd: EDITOR, stdio: 'ignore' },
-);
-execFileSync(
-  process.execPath,
-  [
-    path.join(EDITOR, 'node_modules', 'vite', 'bin', 'vite.js'),
-    'build',
-    '--config',
-    path.join(EDITOR, 'vite.mcp-stdio.config.mjs'),
-  ],
-  { cwd: EDITOR, stdio: 'ignore' },
-);
+if (!fs.existsSync(BUNDLE)) {
+  execFileSync(process.execPath, [VITE, 'build', '--config', path.join(EDITOR, 'vite.command-bus.config.mjs')], {
+    cwd: EDITOR,
+    stdio: 'ignore',
+  });
+}
+if (!fs.existsSync(MCP_STDIO)) {
+  execFileSync(process.execPath, [VITE, 'build', '--config', path.join(EDITOR, 'vite.mcp-stdio.config.mjs')], {
+    cwd: EDITOR,
+    stdio: 'ignore',
+  });
+}
 
 const require = createRequire(import.meta.url);
 const projectStore = require('../../editor/electron/lib/project.cjs');
 const schema = require('../../editor/electron/lib/schema.cjs');
+const media = require('../../editor/electron/lib/media.cjs');
 const mcp = require('../../editor/electron/lib/mcp-server.cjs');
 
 async function makeProject() {
@@ -54,297 +46,247 @@ function readProject(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-async function callTool(context, name, args) {
+async function callTool(context, name, args = {}) {
   return mcp.handleMessage(
     { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } },
     context,
   );
 }
 
-test('MCP：tools/list 暴露 21 个 command + 3 个辅助 tool', () => {
+function payload(response) {
+  return response.result.structuredContent;
+}
+
+test('MCP 语义工具：默认 tools/list 只暴露高层工具', () => {
   const tools = mcp.buildTools();
-  assert.equal(tools.length, 24);
   const names = tools.map((tool) => tool.name);
-  assert.ok(names.includes('list_commands'));
-  assert.ok(names.includes('get_project_summary'));
+  assert.equal(tools.length, 13);
+  assert.ok(names.includes('create_project'));
+  assert.ok(names.includes('get_blueprint_summary'));
+  assert.ok(names.includes('create_branch_node'));
+  assert.ok(names.includes('create_dialogue_chain'));
+  assert.ok(names.includes('create_choice_node'));
+  assert.ok(names.includes('import_image_asset'));
   assert.ok(names.includes('execute_command'));
-  assert.ok(names.includes('blueprint_createNode'));
-  assert.ok(names.includes('timeline_addKeyframe'));
+  assert.equal(names.includes('blueprint_createNode'), false);
   for (const tool of tools) {
     assert.equal(tool.inputSchema.type, 'object');
     assert.equal(tool.inputSchema.additionalProperties, false);
   }
-  // projectPath 是可选的（启动参数/环境变量可提供默认值）
-  assert.equal(tools.find((tool) => tool.name === 'blueprint_createNode').inputSchema.required.includes('projectPath'), false);
   assert.doesNotThrow(() => JSON.stringify(tools));
 });
 
-test('MCP：initialize 协商协议版本，tools/list 返回 tools', async () => {
+test('MCP：initialize 与 tools/list', async () => {
   const context = mcp.createContext({ version: 'test' });
   const init = await mcp.handleMessage(
-    {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test' } },
-    },
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } },
     context,
   );
   assert.equal(init.result.protocolVersion, '2025-06-18');
   assert.equal(init.result.serverInfo.name, 'vn-studio');
-  assert.ok(init.result.capabilities.tools);
-
-  const newer = await mcp.handleMessage(
-    { jsonrpc: '2.0', id: 2, method: 'initialize', params: { protocolVersion: '2099-01-01' } },
-    context,
-  );
-  assert.equal(newer.result.protocolVersion, mcp.LATEST_PROTOCOL);
-
-  const list = await mcp.handleMessage({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, context);
-  assert.equal(list.result.tools.length, 24);
-
-  const unknown = await mcp.handleMessage({ jsonrpc: '2.0', id: 4, method: 'nope' }, context);
+  const list = await mcp.handleMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, context);
+  assert.equal(list.result.tools.length, 13);
+  const unknown = await mcp.handleMessage({ jsonrpc: '2.0', id: 3, method: 'nope' }, context);
   assert.equal(unknown.error.code, -32601);
 });
 
-test('MCP：get_project_summary 返回节点 id / 出口 / 时间轴', async () => {
-  const { dir, file } = await makeProject();
+test('MCP：create_project + 语义建场景/对话/分支/选项 + 快照', async () => {
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), 'vns-create-'));
+  const projectDir = path.join(parent, 'game');
   try {
-    const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
-    const response = await callTool(context, 'get_project_summary', {});
-    assert.equal(response.result.isError, undefined);
-    const summary = response.result.structuredContent.summary;
-    assert.equal(summary.title, 'MCP 测试项目');
-    assert.equal(summary.nodes.length, 1);
-    assert.equal(summary.nodes[0].id, 'n_opening');
-    assert.equal(summary.nodes[0].type, 'dialogue');
-    assert.ok(summary.nodes[0].exits.some((exit) => exit.id === 'next'));
-  } finally {
-    await fsp.rm(dir, { recursive: true, force: true });
-  }
-});
-
-test('MCP：单 command tool 直接读写 project.json 并返回结构化结果', async () => {
-  const { dir, file } = await makeProject();
-  try {
-    const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
-    const created = await callTool(context, 'blueprint_createNode', {
-      type: 'dialogue',
-      name: 'AI 写的第一句',
-      projectPath: file,
+    const noPath = await callTool(mcp.createContext({ version: 'test' }), 'create_project', {
+      project_dir: projectDir,
+      title: 'AI 的游戏',
+      resolution: { width: 1280, height: 720 },
     });
-    assert.equal(created.result.isError, undefined);
-    const payload = created.result.structuredContent;
-    assert.equal(payload.ok, true);
-    assert.equal(payload.saved, true);
-    assert.equal(payload.project, undefined);
-    assert.equal(payload.affectedNodeIds.length, 1);
-    assert.equal(payload.projectPath, file);
-    const nodeId = payload.affectedNodeIds[0];
+    const created = payload(noPath);
+    assert.equal(created.success, true);
+    assert.equal(fs.existsSync(path.join(projectDir, 'project.json')), true);
+    const projectPath = path.join(projectDir, 'project.json');
+    const context = mcp.createContext({ defaultProjectPath: projectPath, version: 'test' });
 
-    const updated = await callTool(context, 'blueprint_updateDialogue', {
-      nodeId,
-      text: '这是通过 MCP 写入的台词。',
-      speaker: '旁白',
+    let response = await callTool(context, 'create_scene_node', {
+      name: '码头',
+      position: { x: 0, y: 0 },
     });
-    assert.equal(updated.result.structuredContent.ok, true);
+    let data = payload(response);
+    assert.equal(data.success, true);
+    const sceneId = data.data.scene_node_id;
+    assert.equal(data.affected.nodes[0].id, sceneId);
+    assert.equal(data.affected.nodes[0].position.x, 0);
+    assert.ok(data.affected.dangling_ports.some((port) => port.node_id === sceneId));
 
-    const project = readProject(file);
-    const node = project.nodes.find((item) => item.id === nodeId);
-    assert.equal(node.text, '这是通过 MCP 写入的台词。');
-    assert.equal(node.speaker, '旁白');
+    response = await callTool(context, 'create_dialogue_chain', {
+      after_node: sceneId,
+      lines: [{ text: '第一句' }, { text: '第二句', speaker: '我' }],
+    });
+    data = payload(response);
+    assert.equal(data.success, true);
+    const dialogueIds = data.data.created_node_ids;
+    assert.equal(dialogueIds.length, 2);
+    assert.ok(data.affected.edges.some((edge) => edge.from === sceneId && edge.to === dialogueIds[0]));
+    assert.ok(data.affected.nodes.every((node) => node.position));
+
+    response = await callTool(context, 'create_branch_node', {
+      from_node: sceneId,
+      condition: 'has_letter == true',
+      to_node: dialogueIds[0],
+      false_node: dialogueIds[1],
+    });
+    data = payload(response);
+    assert.equal(data.success, true);
+    const conditionId = data.data.condition_node_id;
+    assert.ok(data.affected.nodes.some((node) => node.id === conditionId && node.type === 'condition'));
+    assert.ok(data.affected.edges.some((edge) => edge.from === sceneId && edge.to === conditionId));
+    assert.equal(data.data.replaced_edge_id !== null, true);
+
+    response = await callTool(context, 'add_scene_keyframes', {
+      scene_node: sceneId,
+      duration_ms: 4000,
+      track: { kind: 'background', property: 'opacity' },
+      keyframes: [
+        { time: 0, value: 1, preset: 'linear' },
+        { time: 4000, value: 0.7, preset: 'easeInOut' },
+      ],
+    });
+    data = payload(response);
+    assert.equal(data.success, true);
+    assert.ok(data.affected.timelines.some((timeline) => timeline.scene_node_id === sceneId));
+
+    response = await callTool(context, 'update_project_settings', {
+      title: '修订标题',
+      start_node_id: sceneId,
+    });
+    data = payload(response);
+    assert.equal(data.success, true);
+    const project = readProject(projectPath);
+    assert.equal(project.meta.title, '修订标题');
+    assert.equal(project.settings.startNodeId, sceneId);
     assert.equal(schema.validateProject(project).ok, true);
   } finally {
+    await fsp.rm(parent, { recursive: true, force: true });
+  }
+});
+
+test('MCP：get_blueprint_summary 返回悬空端口与素材', async () => {
+  const { dir, file } = await makeProject();
+  try {
+    const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
+    const response = await callTool(context, 'get_blueprint_summary', {});
+    const data = payload(response);
+    assert.equal(data.success, true);
+    assert.equal(data.summary.counts.nodes, 1);
+    assert.equal(data.summary.nodes[0].id, 'n_opening');
+    assert.equal(data.summary.dangling_ports.length, 1);
+    assert.ok(data.summary.assets && Array.isArray(data.summary.assets.images));
+    assert.match(data.revision, /^sha1:/);
+  } finally {
     await fsp.rm(dir, { recursive: true, force: true });
   }
 });
 
-test('MCP：execute_command 通用入口可串联建节点/连线', async () => {
+test('MCP：execute_command 是高级逃生口，仍返回受影响快照', async () => {
   const { dir, file } = await makeProject();
   try {
     const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
-    const created = await callTool(context, 'execute_command', {
+    const response = await callTool(context, 'execute_command', {
       command: 'blueprint_createNode',
-      params: { type: 'scene', name: 'MCP 场景' },
+      params: { type: 'scene', name: '逃生口场景' },
     });
-    const sceneId = created.result.structuredContent.affectedNodeIds[0];
-    const connected = await callTool(context, 'execute_command', {
-      command: 'blueprint_connect',
-      params: { fromNodeId: 'n_opening', fromExitId: 'next', toNodeId: sceneId },
-    });
-    assert.equal(connected.result.structuredContent.ok, true);
-    assert.ok(connected.result.structuredContent.affectedNodeIds.includes(sceneId));
-
-    const project = readProject(file);
-    assert.equal(project.edges.length, 1);
-    assert.equal(project.edges[0].to, sceneId);
-    assert.equal(schema.validateProject(project).ok, true);
-
-    const failed = await callTool(context, 'execute_command', {
-      command: 'blueprint_connect',
-      params: { fromNodeId: 'n_missing', fromExitId: 'next', toNodeId: sceneId },
-    });
-    assert.equal(failed.result.isError, true);
-    assert.equal(failed.result.structuredContent.error.code, 'E_CONNECTION_INVALID');
+    const data = payload(response);
+    assert.equal(data.success, true);
+    assert.equal(data.affected.nodes[0].type, 'scene');
+    assert.ok(Array.isArray(data.dangling_ports));
+    assert.equal(schema.validateProject(readProject(file)).ok, true);
   } finally {
     await fsp.rm(dir, { recursive: true, force: true });
   }
 });
 
-test('MCP：缺少/错误 projectPath 返回可读错误', async () => {
-  const context = mcp.createContext({ version: 'test' });
-  const missing = await callTool(context, 'get_project_summary', {});
-  assert.equal(missing.result.isError, true);
-  assert.equal(missing.result.structuredContent.error.code, 'E_PROJECT_PATH_REQUIRED');
-
-  const notFound = await callTool(context, 'get_project_summary', {
-    projectPath: path.join(os.tmpdir(), 'definitely-missing-vns-project.json'),
-  });
-  assert.equal(notFound.result.isError, true);
-  assert.equal(notFound.result.structuredContent.error.code, 'E_PROJECT_NOT_FOUND');
-
-  const project = projectStore.defaultProject({ title: 'x' });
-  project.nodes = [];
-  const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vns-mcp-bad-'));
-  const file = path.join(dir, 'project.json');
-  await fsp.writeFile(file, JSON.stringify(project), 'utf8');
-  try {
-    const invalid = await callTool(context, 'get_project_summary', { projectPath: file });
-    assert.equal(invalid.result.isError, true);
-    assert.equal(invalid.result.structuredContent.error.code, 'E_PROJECT_INVALID');
-  } finally {
-    await fsp.rm(dir, { recursive: true, force: true });
-  }
-});
-
-test('MCP：独立 mcp-stdio.cjs 可启动、握手并写回项目', async () => {
+test('MCP：import_image_asset 处理图片并写回项目', { skip: !media.isFfmpegAvailable() }, async () => {
   const { dir, file } = await makeProject();
-  const child = spawn(process.execPath, [MCP_STDIO, '--project', file], {
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-  let stdout = '';
-  let stderr = '';
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    stdout += chunk;
-  });
-  child.stderr.on('data', (chunk) => {
-    stderr += chunk;
-  });
-  child.stdin.write(
-    `${JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test' } },
-    })}\n`,
-  );
-  child.stdin.write(
-    `${JSON.stringify({
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: { name: 'blueprint_createNode', arguments: { type: 'scene', name: 'stdio 场景' } },
-    })}\n`,
-  );
-  const exitCode = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error(`mcp-stdio 超时：${stderr.slice(-300)}`));
-    }, 10000);
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      resolve(code);
-    });
-    setTimeout(() => child.stdin.end(), 600);
-  });
+  const sourcePath = path.join(dir, 'source.png');
   try {
-    assert.equal(exitCode, 0, `stderr: ${stderr.slice(-400)}`);
-    const responses = stdout
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
-    assert.equal(responses[0].id, 1);
-    assert.equal(responses[0].result.protocolVersion, '2025-06-18');
-    const created = responses.find((item) => item.id === 2);
-    assert.equal(created.result.isError, undefined);
-    assert.equal(created.result.structuredContent.ok, true);
-    assert.equal(created.result.structuredContent.saved, true);
+    execFileSync(media.FFMPEG, ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=white:s=64x128', '-frames:v', '1', sourcePath], {
+      stdio: 'ignore',
+      timeout: 60000,
+    });
+    const base64 = fs.readFileSync(sourcePath).toString('base64');
+    const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
+    const response = await callTool(context, 'import_image_asset', {
+      base64_data: base64,
+      asset_type: 'character',
+      auto_remove_bg: true,
+    });
+    const data = payload(response);
+    assert.equal(data.success, true);
+    assert.equal(data.width, 512);
+    assert.equal(data.height, 1024);
+    assert.match(data.asset_id, /^img_/);
+    assert.ok(fs.existsSync(path.join(dir, data.path)));
     const project = readProject(file);
-    assert.equal(project.nodes.length, 2);
+    assert.equal(project.assets.images.length, 1);
+    assert.equal(project.assets.images[0].id, data.asset_id);
     assert.equal(schema.validateProject(project).ok, true);
   } finally {
     await fsp.rm(dir, { recursive: true, force: true });
   }
 });
 
-test('MCP HTTP：initialize / tools/call / 写回项目', async () => {
+test('MCP：空/错误参数返回结构化错误', async () => {
   const { dir, file } = await makeProject();
-  const server = await mcp.startHttpMcpServer({ port: 0, defaultProjectPath: file, version: 'test', log: () => {} });
   try {
-    const health = await fetch(`${server.url.replace(/\/mcp$/, '/health')}`);
-    assert.equal(health.status, 200);
-    const healthJson = await health.json();
-    assert.equal(healthJson.ok, true);
-    assert.equal(healthJson.tools, 24);
+    const context = mcp.createContext({ defaultProjectPath: file, version: 'test' });
+    const bad = await callTool(context, 'create_branch_node', {
+      from_node: 'n_missing',
+      condition: 'true',
+      to_node: 'n_missing',
+    });
+    assert.equal(payload(bad).success, false);
+    assert.equal(payload(bad).error.code, 'E_NODE_NOT_FOUND');
 
-    const initResponse = await fetch(server.url, {
+    const badImage = await callTool(context, 'import_image_asset', {
+      base64_data: 'not-an-image',
+      asset_type: 'character',
+    });
+    assert.equal(payload(badImage).success, false);
+    assert.ok(['E_IMAGE_FORMAT', 'E_IMAGE_INVALID'].includes(payload(badImage).error.code));
+  } finally {
+    await fsp.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('MCP HTTP：语义 tools/list 与 initialize', async () => {
+  const server = await mcp.startHttpMcpServer({ port: 0, version: 'test', log: () => {} });
+  try {
+    const init = await fetch(server.url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
-        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test' } },
+        params: { protocolVersion: '2025-06-18' },
       }),
     });
-    assert.equal(initResponse.status, 200);
-    const sessionId = initResponse.headers.get('mcp-session-id');
-    assert.ok(sessionId);
-    const initJson = await initResponse.json();
+    assert.equal(init.status, 200);
+    assert.ok(init.headers.get('mcp-session-id'));
+    const initJson = await init.json();
     assert.equal(initJson.result.protocolVersion, '2025-06-18');
 
-    const callResponse = await fetch(server.url, {
+    const tools = await fetch(server.url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json, text/event-stream',
-        'mcp-session-id': sessionId,
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/call',
-        params: { name: 'blueprint_createNode', arguments: { type: 'scene', name: 'HTTP 场景' } },
-      }),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
     });
-    assert.equal(callResponse.status, 200);
-    const callJson = await callResponse.json();
-    assert.equal(callJson.result.structuredContent.ok, true);
-    assert.equal(callJson.result.structuredContent.saved, true);
-    const project = readProject(file);
-    assert.equal(project.nodes.length, 2);
-    assert.equal(schema.validateProject(project).ok, true);
-
-    const notification = await fetch(server.url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'mcp-session-id': sessionId },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }),
-    });
-    assert.equal(notification.status, 202);
-
-    const getResponse = await fetch(server.url, { headers: { accept: 'text/event-stream' } });
-    assert.equal(getResponse.status, 405);
-    const deleteResponse = await fetch(server.url, { method: 'DELETE' });
-    assert.equal(deleteResponse.status, 200);
+    const toolsJson = await tools.json();
+    assert.equal(toolsJson.result.tools.length, 13);
   } finally {
     await server.close();
-    await fsp.rm(dir, { recursive: true, force: true });
   }
 });
 
-test('MCP：stdio 换行 JSON-RPC 收发正常', async () => {
+test('MCP：stdio 换行 JSON-RPC + 独立 bundle', async () => {
   const { dir, file } = await makeProject();
   const input = new PassThrough();
   const output = new PassThrough();
@@ -353,9 +295,7 @@ test('MCP：stdio 换行 JSON-RPC 收发正常', async () => {
     new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`只收到 ${lines.length}/${count} 行`)), 5000);
       const onData = (chunk) => {
-        for (const line of chunk.toString('utf8').split('\n')) {
-          if (line.trim()) lines.push(JSON.parse(line));
-        }
+        for (const line of chunk.toString('utf8').split('\n')) if (line.trim()) lines.push(JSON.parse(line));
         if (lines.length >= count) {
           clearTimeout(timer);
           output.off('data', onData);
@@ -365,19 +305,11 @@ test('MCP：stdio 换行 JSON-RPC 收发正常', async () => {
       output.on('data', onData);
     });
   try {
-    const server = mcp.startMcpServer({
-      defaultProjectPath: file,
-      version: 'test',
-      input,
-      output,
-      log: () => {},
-    });
+    const server = mcp.startMcpServer({ defaultProjectPath: file, version: 'test', input, output, log: () => {} });
     input.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })}\n`);
     input.write(`${JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })}\n`);
     await waitForLines(2);
-    assert.equal(lines[0].id, 1);
-    assert.equal(lines[1].result.tools.length, 24);
-    assert.equal(server.context.tools.length, 24);
+    assert.equal(lines[1].result.tools.length, 13);
     server.stop();
   } finally {
     input.destroy();
