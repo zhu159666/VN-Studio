@@ -117,7 +117,7 @@ function renderEditedCanvas(canvas, image, cropRect, removeBackground, adjustmen
  * @param {(asset:object)=>void} [props.onAssetUpdated] 导出成功后的新资产
  * @param {(message:string, kind?:string)=>void} [props.notify]
  */
-export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify }) {
+export default function ImageEditor({ asset, projectDir, onAssetUpdated, onPreviewChange, notify }) {
   const safeNotify = typeof notify === 'function' ? notify : () => {};
 
   const [load, setLoad] = useState({ status: 'loading' });
@@ -132,9 +132,20 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
   const [pickedColor, setPickedColor] = useState(null);
   const [pickMode, setPickMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  // 视图缩放/平移（与裁剪 zoom 分离；蓝图式查看大图，不改变输出裁剪）
+  const [viewMode, setViewMode] = useState('result');
+  const [viewZoom, setViewZoom] = useState(1);
+  const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
+  const [imageUrl, setImageUrl] = useState('');
+  // 下方编辑区：可折叠 / 拖拽改变高度
+  const [toolsCollapsed, setToolsCollapsed] = useState(false);
+  const [toolsHeight, setToolsHeight] = useState(300);
 
   const imageRef = useRef(null);
   const previewCanvasRef = useRef(null);
+  const stageRef = useRef(null);
+  const viewDragRef = useRef(null);
+  const toolsDragRef = useRef(null);
 
   // ── 加载原图（source 优先，缺失回退 path）──────────────────────────────
   useEffect(() => {
@@ -198,7 +209,10 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
     assetsApi
       .readDataUrl({ projectDir, relativePath })
       .then(({ dataUrl }) => {
-        if (!cancelled) image.src = dataUrl;
+        if (!cancelled) {
+          setImageUrl(dataUrl);
+          image.src = dataUrl;
+        }
       })
       .catch((error) => {
         if (cancelled) return;
@@ -239,13 +253,119 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
       canvas.height = previewHeight;
     }
     renderEditedCanvas(canvas, image, cropRect, removeBackground, adjustments, previewWidth, previewHeight);
-  }, [cropRect, removeBackground, adjustments]);
+    try {
+      onPreviewChange?.(canvas.toDataURL('image/png'));
+    } catch {
+      // 预览数据只用于浮窗，生成失败不影响保存
+    }
+  }, [cropRect, removeBackground, adjustments, onPreviewChange]);
 
   useEffect(() => {
     if (load.status !== 'ready') return undefined;
     const timer = setTimeout(drawPreview, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [load.status, drawPreview]);
+
+  // ── 视图缩放：适配窗口 / 滚轮 / 拖拽平移（不改变裁剪与输出）─────────────
+  const fitView = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage || load.status !== 'ready' || !cropRect) return;
+    const bounds = stage.getBoundingClientRect();
+    const natural =
+      viewMode === 'source'
+        ? { width: load.width, height: load.height }
+        : {
+            width: previewCanvasRef.current?.width || cropRect.width,
+            height: previewCanvasRef.current?.height || cropRect.height,
+          };
+    if (!natural.width || !natural.height || !bounds.width || !bounds.height) return;
+    const scale = Math.min(
+      (bounds.width - 36) / natural.width,
+      (bounds.height - 52) / natural.height,
+    );
+    setViewZoom(Math.max(0.05, Math.min(4, scale)));
+    setViewOffset({ x: 0, y: 0 });
+  }, [cropRect, load, viewMode]);
+
+  useEffect(() => {
+    setViewMode('result');
+    setViewZoom(1);
+    setViewOffset({ x: 0, y: 0 });
+  }, [asset?.id]);
+
+  useEffect(() => {
+    if (load.status !== 'ready') return;
+    const timer = setTimeout(fitView, 80);
+    return () => clearTimeout(timer);
+  }, [load.status, viewMode, cropRect, fitView]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(() => fitView());
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [fitView, load.status]);
+
+  const handleViewWheel = useCallback((event) => {
+    if (load.status !== 'ready') return;
+    event.preventDefault();
+    const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+    setViewZoom((value) => Math.max(0.05, Math.min(5, value * factor)));
+  }, [load.status]);
+
+  const handleViewPointerDown = useCallback(
+    (event) => {
+      if (pickMode || event.button !== 0) return;
+      viewDragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        offsetX: viewOffset.x,
+        offsetY: viewOffset.y,
+      };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    },
+    [pickMode, viewOffset],
+  );
+
+  const handleViewPointerMove = useCallback((event) => {
+    const drag = viewDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setViewOffset({
+      x: drag.offsetX + (event.clientX - drag.startX),
+      y: drag.offsetY + (event.clientY - drag.startY),
+    });
+  }, []);
+
+  const handleViewPointerUp = useCallback((event) => {
+    const drag = viewDragRef.current;
+    if (!drag) return;
+    viewDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  }, []);
+
+  const handleToolsResizeStart = useCallback(
+    (event) => {
+      if (event.button !== 0) return;
+      toolsDragRef.current = { startY: event.clientY, startHeight: toolsHeight };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    },
+    [toolsHeight],
+  );
+
+  const handleToolsResizeMove = useCallback((event) => {
+    const drag = toolsDragRef.current;
+    if (!drag) return;
+    const next = Math.max(120, Math.min(window.innerHeight * 0.72, drag.startHeight - (event.clientY - drag.startY)));
+    setToolsHeight(next);
+  }, []);
+
+  const handleToolsResizeEnd = useCallback((event) => {
+    if (!toolsDragRef.current) return;
+    toolsDragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  }, []);
 
   // ── 裁剪参数变化：按预设比例 + zoom/offset 重算源图裁剪框 ───────────────
   const applyCropControl = useCallback(
@@ -507,19 +627,115 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
 
       {load.status === 'ready' && (
         <>
-          <div className="vn-ed-img-stage">
-            <div className="vn-ed-img-canvas-wrap">
-              <canvas
-                ref={previewCanvasRef}
-                className={`vn-ed-img-canvas${pickMode ? ' is-picking' : ''}`}
-                onClick={handleCanvasClick}
+          <div
+            className="vn-ed-img-stage"
+            ref={stageRef}
+            onWheel={handleViewWheel}
+            onPointerDown={handleViewPointerDown}
+            onPointerMove={handleViewPointerMove}
+            onPointerUp={handleViewPointerUp}
+            onPointerCancel={handleViewPointerUp}
+          >
+            <div className="vn-ed-img-view-tools" onPointerDown={(event) => event.stopPropagation()}>
+              <button
+                type="button"
+                className={`vn-ed-chip${viewMode === 'result' ? ' is-active' : ''}`}
+                onClick={() => setViewMode('result')}
+              >
+                编辑结果
+              </button>
+              <button
+                type="button"
+                className={`vn-ed-chip${viewMode === 'source' ? ' is-active' : ''}`}
+                onClick={() => setViewMode('source')}
+              >
+                查看原图
+              </button>
+              <button
+                type="button"
+                className="vn-ed-btn"
+                onClick={() => setViewZoom((value) => Math.max(0.05, value / 1.12))}
+                title="缩小"
+              >
+                −
+              </button>
+              <span className="vn-ed-img-zoom-label">{Math.round(viewZoom * 100)}%</span>
+              <button
+                type="button"
+                className="vn-ed-btn"
+                onClick={() => setViewZoom((value) => Math.min(5, value * 1.12))}
+                title="放大"
+              >
+                +
+              </button>
+              <button type="button" className="vn-ed-btn" onClick={fitView} title="适应窗口">
+                适应
+              </button>
+            </div>
+            <div
+              className="vn-ed-img-canvas-wrap"
+              style={{
+                transform: `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${viewZoom})`,
+              }}
+            >
+              {viewMode === 'source' ? (
+                <img
+                  className="vn-ed-img-source"
+                  src={imageUrl}
+                  alt="原图预览"
+                  draggable={false}
+                  style={{ width: load.width, height: load.height }}
+                />
+              ) : (
+                <canvas
+                  ref={previewCanvasRef}
+                  className={`vn-ed-img-canvas${pickMode ? ' is-picking' : ''}`}
+                  onClick={handleCanvasClick}
+                />
+              )}
+              <div
+                className="vn-ed-img-crop-frame"
+                aria-hidden="true"
+                style={
+                  viewMode === 'source'
+                    ? {
+                        inset: 'auto',
+                        left: `${(cropRect.x / Math.max(1, load.width)) * 100}%`,
+                        top: `${(cropRect.y / Math.max(1, load.height)) * 100}%`,
+                        width: `${(cropRect.width / Math.max(1, load.width)) * 100}%`,
+                        height: `${(cropRect.height / Math.max(1, load.height)) * 100}%`,
+                      }
+                    : undefined
+                }
               />
-              <div className="vn-ed-img-crop-frame" aria-hidden="true" />
               {pickMode && <div className="vn-ed-img-pick-hint">取色模式：点击画面拾取背景色</div>}
             </div>
           </div>
 
-          <div className="vn-ed-img-tools">
+          <div
+            className="vn-ed-img-splitter"
+            role="separator"
+            aria-orientation="horizontal"
+            title="上下拖动调整编辑区高度，双击收起/展开"
+            onPointerDown={handleToolsResizeStart}
+            onPointerMove={handleToolsResizeMove}
+            onPointerUp={handleToolsResizeEnd}
+            onPointerCancel={handleToolsResizeEnd}
+            onDoubleClick={() => setToolsCollapsed((value) => !value)}
+          >
+            <span className="vn-ed-img-splitter-bar" />
+            <button
+              type="button"
+              className="vn-ed-btn vn-ed-img-splitter-btn"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => setToolsCollapsed((value) => !value)}
+            >
+              {toolsCollapsed ? '展开编辑栏' : '收起编辑栏'}
+            </button>
+          </div>
+
+          {!toolsCollapsed && (
+            <div className="vn-ed-img-tools" style={{ height: `${toolsHeight}px` }}>
             {/* 1. 裁剪 */}
             <div className="vn-ed-panel">
               <div className="vn-ed-panel-title">裁剪</div>
@@ -724,6 +940,7 @@ export default function ImageEditor({ asset, projectDir, onAssetUpdated, notify 
               </button>
             </div>
           </div>
+          )}
         </>
       )}
     </section>

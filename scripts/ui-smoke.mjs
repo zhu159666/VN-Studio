@@ -517,6 +517,34 @@ async function main() {
       throw new Error('素材编辑界面缺少 is-no-timeline 布局');
     }
     await capture(editorPage, 'chromium-asset-editor.png');
+    if ((await editorPage.locator('.vn-ed-img-zoom-label').count()) === 0) {
+      throw new Error('素材编辑缺少视图缩放控件');
+    }
+    if ((await editorPage.locator('.vn-asset-scene').count()) === 0) {
+      throw new Error('素材编辑缺少场景预览浮窗');
+    }
+    await editorPage.getByRole('button', { name: '查看原图' }).click();
+    await editorPage.waitForTimeout(300);
+    if ((await editorPage.locator('.vn-ed-img-source').count()) === 0) {
+      throw new Error('素材编辑无法查看完整原图');
+    }
+    await editorPage.getByRole('button', { name: '编辑结果' }).click();
+    await editorPage.getByRole('button', { name: '收起编辑栏' }).click();
+    await editorPage.waitForTimeout(200);
+    if ((await editorPage.locator('.vn-ed-img-tools').count()) !== 0) {
+      throw new Error('收起编辑栏后下方工具区仍然存在');
+    }
+    await editorPage.getByRole('button', { name: '展开编辑栏' }).click();
+    await editorPage.waitForTimeout(200);
+    if ((await editorPage.locator('.vn-ed-img-tools').count()) === 0) {
+      throw new Error('展开编辑栏失败');
+    }
+    await capture(editorPage, 'chromium-asset-editor-view.png');
+    await editorPage.getByRole('button', { name: '演示' }).click();
+    await editorPage.waitForTimeout(800);
+    if ((await editorPage.locator('.vn-workspace__timeline').count()) === 0) {
+      throw new Error('演示界面不应隐藏时间轴');
+    }
     await editorPage.getByRole('button', { name: '蓝图' }).click();
     await editorPage.waitForTimeout(300);
     if ((await editorPage.locator('.vn-workspace__timeline').count()) === 0) {

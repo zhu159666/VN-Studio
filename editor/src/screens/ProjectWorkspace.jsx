@@ -16,6 +16,7 @@ import MinigamePreview from '../features/assets/MinigamePreview';
 import VideoPreview from '../features/assets/VideoPreview';
 import BlueprintEditor from '../features/blueprint/BlueprintEditor';
 import RuntimePreview from '../features/preview/RuntimePreview';
+import AssetScenePreview from '../features/preview/AssetScenePreview';
 import SceneMiniPreview from '../features/preview/SceneMiniPreview';
 import TimelineEditor from '../features/timeline/TimelineEditor';
 import { findAsset } from '../state/useProjectController';
@@ -184,6 +185,11 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
   const dragRef = useRef(null);
 
   const selectedAsset = findAsset(project, selectedAssetId);
+  const [assetLivePreview, setAssetLivePreview] = useState('');
+
+  useEffect(() => {
+    setAssetLivePreview('');
+  }, [selectedAssetId, activeTab]);
   const selectedNode = project.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const selectedEdge = project.edges.find((edge) => edge.id === selectedEdgeId) ?? null;
 
@@ -380,6 +386,7 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
           asset={selectedAsset}
           projectDir={projectDir}
           onAssetUpdated={(updated) => actions.replaceAsset(updated)}
+          onPreviewChange={setAssetLivePreview}
           notify={notify}
         />
       );
@@ -512,7 +519,7 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
 
         <div className="vn-splitter vn-splitter--v" onPointerDown={beginDrag('left')} role="separator" aria-orientation="vertical" />
 
-        <main className={`vn-workspace__center${activeTab === 'blueprint' ? '' : ' is-no-timeline'}`}>
+        <main className={`vn-workspace__center${activeTab === 'asset' ? ' is-no-timeline' : ''}`}>
           <nav className="vn-workspace__tabs" aria-label="中栏视图">
             <button
               type="button"
@@ -571,8 +578,16 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
             ) : (
               renderEditor()
             )}
+            {activeTab === 'asset' && selectedAsset && selectedAsset.kind !== 'audio' ? (
+              <AssetScenePreview
+                asset={selectedAsset}
+                project={project}
+                projectDir={projectDir}
+                liveDataUrl={assetLivePreview}
+              />
+            ) : null}
           </div>
-          {activeTab === 'blueprint' ? (
+          {activeTab !== 'asset' ? (
             <>
               <div
                 className="vn-splitter vn-splitter--h"
