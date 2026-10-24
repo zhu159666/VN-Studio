@@ -725,6 +725,11 @@ export function createRuntime(options = {}) {
   }
 
   function drawTextbox(state) {
+    const dialogue = state?.dialogue;
+    const fullText = typeof dialogue?.text === 'string' ? dialogue.text : '';
+    const speaker = typeof dialogue?.speaker === 'string' ? dialogue.speaker.trim() : '';
+    // 分镜/空镜 scene 节点没有 dialogue：不要画空文本框；有台词后再显示。
+    if (!dialogue || (!fullText && !speaker)) return;
     const source = state?.stage?.textbox || {};
     const box = { ...DEFAULT_TEXTBOX, ...source };
     const opacity = clamp01(box.opacity, 1);
@@ -768,9 +773,6 @@ export function createRuntime(options = {}) {
       context.restore();
     }
 
-    const dialogue = state?.dialogue;
-    if (!dialogue) return;
-
     const fontSize = clamp(asNumber(box.fontSizePx, DEFAULT_TEXTBOX.fontSizePx), 8, 200);
     const padding = clamp(
       asNumber(box.paddingPx, Math.round(fontSize * 0.85)),
@@ -779,7 +781,6 @@ export function createRuntime(options = {}) {
     );
     const color = box.color || DEFAULT_TEXTBOX.color;
     const lineHeight = Math.round(fontSize * 1.5);
-    const speaker = typeof dialogue.speaker === 'string' ? dialogue.speaker.trim() : '';
 
     if (speaker) {
       const speakerSize = Math.max(12, Math.round(fontSize * 0.78));
@@ -806,7 +807,6 @@ export function createRuntime(options = {}) {
       context.restore();
     }
 
-    const fullText = typeof dialogue.text === 'string' ? dialogue.text : '';
     const typingThisNode = typing.nodeId === state.nodeId;
     const visibleCount = typingThisNode
       ? Math.max(0, Math.floor(typing.shown))
