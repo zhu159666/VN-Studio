@@ -120,6 +120,11 @@
   background: var(--bg-0);
 }
 
+/* 素材编辑 / 演示时不渲染时间轴，避免画布被上下挤压 */
+.vn-workspace__center.is-no-timeline {
+  grid-template-rows: 38px minmax(0, 1fr);
+}
+
 .vn-workspace__tabs {
   display: flex;
   align-items: center;

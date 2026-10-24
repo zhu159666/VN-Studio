@@ -33,13 +33,15 @@ test('makeAssetId 生成 前缀_8位小写base36 且符合 ASSET_ID_RE', () => {
   assert.throws(() => utils.makeAssetId('foo'), /未知的素材 id 前缀/);
 });
 
-test('ASSET_ID_RE 允许更长的随机串（冲突加长），拒绝非法形态', () => {
+test('ASSET_ID_RE 与 schema 对齐：兼容旧工程/短 id，也拒绝非法形态', () => {
   assert.ok(utils.ASSET_ID_RE.test('img_0123456789'));
   assert.ok(utils.ASSET_ID_RE.test('mg_abcdefghijklmnop'));
-  assert.ok(!utils.ASSET_ID_RE.test('img_1234567'), '不足 8 位应拒绝');
-  assert.ok(!utils.ASSET_ID_RE.test('IMG_abcdefgh'), '大写前缀应拒绝');
-  assert.ok(!utils.ASSET_ID_RE.test('img_ABCDEFGH'), '大写随机串应拒绝');
-  assert.ok(!utils.ASSET_ID_RE.test('aud-invalid-'), '无下划线应拒绝');
+  assert.ok(utils.ASSET_ID_RE.test('img_bg_dorm'), '旧工程的短 id 必须允许编辑');
+  assert.ok(utils.ASSET_ID_RE.test('img_char-xixi'), '连字符 id 必须允许编辑');
+  assert.ok(utils.ASSET_ID_RE.test('IMG_abcdefgh'), 'schema 允许大写开头');
+  assert.ok(!utils.ASSET_ID_RE.test('1bad-id'), '数字开头应拒绝');
+  assert.ok(!utils.ASSET_ID_RE.test(''), '空 id 应拒绝');
+  assert.ok(!utils.ASSET_ID_RE.test('a'.repeat(65)), '超过 64 字符应拒绝');
 });
 
 test('makeAssetId 避免与数组 / Set 中的已有 id 冲突，批量生成唯一', () => {
@@ -128,7 +130,7 @@ test('sourceRelPath / final*RelPath 路径构造', () => {
   assert.equal(utils.sourceRelPath('audio', 'aud_abcd1234', 'mp3'), 'assets/.source/audio/aud_abcd1234.mp3');
   assert.equal(utils.sourceRelPath('video', 'vid_abcd1234', 'mp4'), 'assets/.source/videos/vid_abcd1234.mp4');
   assert.throws(() => utils.sourceRelPath('minigame', 'mg_abcd1234', 'html'), /未知的素材分类/);
-  assert.throws(() => utils.sourceRelPath('images', 'bad-id', 'png'), /素材 id 非法/);
+  assert.throws(() => utils.sourceRelPath('images', '1bad-id', 'png'), /素材 id 非法/);
   assert.throws(() => utils.sourceRelPath('images', 'img_abcd1234', ''), /扩展名非法/);
 
   assert.equal(utils.finalImageRelPath('img_abcd1234'), 'assets/images/img_abcd1234.webp');

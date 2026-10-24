@@ -176,8 +176,8 @@ function buildFixture(mockAssets) {
   // 其余节点类型：用于属性面板与出口拖拽验收
   const minigame = createNodeDraft(project, 'minigame', { position: { x: 360, y: 380 } }).node;
   minigame.name = '开锁小游戏';
-  const video = createNodeDraft(project, 'video', { position: { x: 700, y: 380 } }).node;
-  video.name = '雨景过场';
+  const video = createNodeDraft(project, 'video', { position: { x: 700, y: 380 } })?.node;
+  if (video) video.name = '雨景过场';
   const condition = createNodeDraft(project, 'condition', { position: { x: 1040, y: 380 } }).node;
   condition.name = '判断结果';
   condition.expression = 'last_minigame_result == "win"';
@@ -186,7 +186,7 @@ function buildFixture(mockAssets) {
   const jump = createNodeDraft(project, 'jump', { position: { x: 360, y: 580 } }).node;
   jump.name = '回到开头';
   jump.targetNodeId = 'n_opening';
-  project.nodes.push(minigame, video, condition, variable, jump);
+  project.nodes.push(minigame, ...(video ? [video] : []), condition, variable, jump);
 
   project.edges = [
     { id: 'e1', from: 'n_opening', port: 'next', to: scene.id, kind: 'sequence' },
@@ -505,6 +505,23 @@ async function main() {
     await capture(editorPage, 'chromium-ai-assistant.png');
     await editorPage.locator('.vn-ai-drawer .vn-ai-close').click();
     await editorPage.waitForSelector('.vn-ai-drawer', { state: 'detached' });
+
+    // 素材编辑：时间轴必须收起，避免画布被上下挤压
+    await editorPage.locator('.vn-asset-item').first().click();
+    await editorPage.getByRole('button', { name: '素材编辑' }).click();
+    await editorPage.waitForTimeout(500);
+    if ((await editorPage.locator('.vn-workspace__timeline').count()) !== 0) {
+      throw new Error('素材编辑界面仍渲染时间轴');
+    }
+    if ((await editorPage.locator('.vn-workspace__center.is-no-timeline').count()) === 0) {
+      throw new Error('素材编辑界面缺少 is-no-timeline 布局');
+    }
+    await capture(editorPage, 'chromium-asset-editor.png');
+    await editorPage.getByRole('button', { name: '蓝图' }).click();
+    await editorPage.waitForTimeout(300);
+    if ((await editorPage.locator('.vn-workspace__timeline').count()) === 0) {
+      throw new Error('回到蓝图后时间轴没有恢复');
+    }
 
     // 明/暗模式切换（编辑器）
     await editorPage.locator('.vn-workspace__topbar .vn-theme-toggle').click();

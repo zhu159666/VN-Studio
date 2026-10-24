@@ -512,7 +512,7 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
 
         <div className="vn-splitter vn-splitter--v" onPointerDown={beginDrag('left')} role="separator" aria-orientation="vertical" />
 
-        <main className="vn-workspace__center">
+        <main className={`vn-workspace__center${activeTab === 'blueprint' ? '' : ' is-no-timeline'}`}>
           <nav className="vn-workspace__tabs" aria-label="中栏视图">
             <button
               type="button"
@@ -572,20 +572,24 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
               renderEditor()
             )}
           </div>
-          <div
-            className="vn-splitter vn-splitter--h"
-            onPointerDown={beginDrag('timeline')}
-            role="separator"
-            aria-orientation="horizontal"
-          />
-          <section className="vn-workspace__timeline" style={{ height: `${timelineHeight}px` }}>
-            <TimelineEditor
-              project={project}
-              projectDir={projectDir}
-              sceneNode={selectedNode?.type === 'scene' ? selectedNode : null}
-              height={timelineHeight}
-            />
-          </section>
+          {activeTab === 'blueprint' ? (
+            <>
+              <div
+                className="vn-splitter vn-splitter--h"
+                onPointerDown={beginDrag('timeline')}
+                role="separator"
+                aria-orientation="horizontal"
+              />
+              <section className="vn-workspace__timeline" style={{ height: `${timelineHeight}px` }}>
+                <TimelineEditor
+                  project={project}
+                  projectDir={projectDir}
+                  sceneNode={selectedNode?.type === 'scene' ? selectedNode : null}
+                  height={timelineHeight}
+                />
+              </section>
+            </>
+          ) : null}
         </main>
 
         {!rightCollapsed ? (

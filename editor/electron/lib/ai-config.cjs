@@ -2,14 +2,35 @@
 
 // 外部 AI 服务配置：只保存在 userData，不写入项目；API Key 用 safeStorage 加密。
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const DEFAULTS = {
   baseUrl: 'https://api.openai.com/v1',
-  model: 'gpt-image-1',
+  model: 'gpt-image-2',
   imageSize: '1024x1024',
   timeoutMs: 60000,
 };
+
+// 如果同机安装了 dsh-image-gen，读取它当前配置的 OpenAI 兼容端点和模型，
+// 让 VN Studio 的生图模型跟随插件。API Key 不读取/不落盘。
+function readDshImageDefaults() {
+  const candidates = [
+    process.env.DSH_PROFILE_DIR && path.join(process.env.DSH_PROFILE_DIR, 'cordis.patch.yml'),
+    path.join(os.homedir(), '.dsh', 'profiles', 'desktop', 'cordis.patch.yml'),
+  ].filter(Boolean);
+  for (const file of candidates) {
+    try {
+      const text = fs.readFileSync(file, 'utf8');
+      const base = text.match(/^\s*openaiCompatBaseURL:\s*(\S+)\s*$/m)?.[1];
+      const model = text.match(/^\s*openaiCompatModel:\s*(\S+)\s*$/m)?.[1];
+      if (base || model) return { ...(base ? { baseUrl: base.replace(/\/+$/, '') } : {}), ...(model ? { model } : {}) };
+    } catch {
+      /* 没有插件配置时使用默认值 */
+    }
+  }
+  return {};
+}
 
 function maskKey(key) {
   if (!key) return '';
@@ -79,9 +100,10 @@ function createAiConfigStore({ filePath, safeStorage = null } = {}) {
   function getPublicConfig() {
     const raw = readRaw();
     const apiKey = getApiKey();
+    const pluginDefaults = readDshImageDefaults();
     return {
-      baseUrl: raw.baseUrl ?? DEFAULTS.baseUrl,
-      model: raw.model ?? DEFAULTS.model,
+      baseUrl: raw.baseUrl ?? pluginDefaults.baseUrl ?? DEFAULTS.baseUrl,
+      model: raw.model ?? pluginDefaults.model ?? DEFAULTS.model,
       imageSize: raw.imageSize ?? DEFAULTS.imageSize,
       timeoutMs: raw.timeoutMs ?? DEFAULTS.timeoutMs,
       hasApiKey: Boolean(apiKey),

@@ -6,10 +6,12 @@
 const crypto = require('crypto');
 const path = require('path');
 
-/** 生成的素材 id：前缀（img/aud/vid/mg）+ 下划线 + 至少 8 位小写 base36。 */
-const ASSET_ID_RE = /^(?:img|aud|vid|mg)_[a-z0-9]{8,}$/;
+/** 素材 id 与项目 schema 的 assetId 对齐：字母开头，允许字母/数字/下划线/连字符。
+ *  生成器仍使用前缀+8位 base36；这里放宽是为了让旧工程/手写工程的合法 id 也能被素材编辑器编辑。 */
+const ASSET_ID_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
 const ASSET_ID_PREFIXES = ['img', 'aud', 'vid', 'mg'];
+const GENERATED_ASSET_ID_RE = /^(?:img|aud|vid|mg)_[a-z0-9]{8,}$/;
 
 const IMAGE_EXTS = ['png', 'webp', 'jpg', 'jpeg'];
 const AUDIO_EXTS = ['wav', 'mp3', 'ogg', 'flac', 'm4a', 'aac'];
