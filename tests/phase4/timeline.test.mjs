@@ -237,6 +237,6 @@ test('完整时间轴对象通过 schema 校验', () => {
   const result = schema.validateProject(withTimeline);
   assert.equal(result.ok, true, JSON.stringify(result.errors, null, 2));
 
-  assert.equal(listTrackCandidates(scene).length, 16); // 1 立绘 ×4 + 背景 4 + 音频 1 + 文本框 7
+  assert.equal(listTrackCandidates(scene).length, 21); // 1 立绘 ×4 + 背景 4 + 音频 1 + 文本框 7 + 镜头 5
   assert.equal(removeTrackFromTimeline(timeline, timeline.tracks[0].id).tracks.length, 3);
 });

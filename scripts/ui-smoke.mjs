@@ -588,6 +588,18 @@ async function main() {
     await sceneNode.click();
     await editorPage.waitForTimeout(800);
     await capture(editorPage, 'chromium-scene-inspector.png');
+    if ((await editorPage.getByText('B4 · 粒子层').count()) === 0) {
+      throw new Error('场景属性面板缺少原生粒子层');
+    }
+    if ((await editorPage.getByText('B3 · 前景层').count()) === 0) {
+      throw new Error('场景属性面板缺少前景层');
+    }
+    const enableParticles = editorPage.getByRole('button', { name: '启用粒子' });
+    if ((await enableParticles.count()) > 0) {
+      await enableParticles.click();
+      await editorPage.waitForTimeout(300);
+      await capture(editorPage, 'chromium-scene-particles.png');
+    }
 
     // 立绘动画模板：选择后应在场景时间轴生成关键帧
     const animationSelect = editorPage
@@ -642,6 +654,9 @@ async function main() {
     await editorPage.getByRole('button', { name: '+ 轨道' }).click();
     await editorPage.waitForSelector('.vn-tl-menu');
     await editorPage.waitForTimeout(300);
+    if ((await editorPage.locator('.vn-tl-menu__item').filter({ hasText: '镜头缩放' }).count()) === 0) {
+      throw new Error('时间轴菜单缺少原生镜头轨道');
+    }
     await capture(editorPage, 'chromium-timeline-menu.png');
     // 菜单必须完整浮在轨道上方：不被工具栏 overflow 裁剪，中心点命中菜单自身。
     const menuCheck = await editorPage.evaluate(() => {

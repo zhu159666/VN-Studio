@@ -6,6 +6,7 @@ export const TRACK_KINDS = {
   background: { label: '背景', short: '背' },
   audio: { label: '音频', short: '音' },
   textbox: { label: '文本框', short: '文' },
+  camera: { label: '镜头', short: '摄' },
 };
 
 export const PROPERTY_META = {
@@ -18,6 +19,9 @@ export const PROPERTY_META = {
   backgroundOpacity: { label: '底框透明度', min: 0, max: 1, step: 0.01 },
   volume: { label: '音量', min: 0, max: 1, step: 0.01 },
   fontSizePx: { label: '字号', min: 8, max: 200, step: 1, integer: true },
+  zoom: { label: '镜头缩放', min: 0.5, max: 3, step: 0.01 },
+  rotation: { label: '镜头旋转', min: -30, max: 30, step: 0.1 },
+  shake: { label: '镜头抖动', min: 0, max: 1, step: 0.01 },
 };
 
 export const PROPERTY_ALLOWED = {
@@ -25,6 +29,7 @@ export const PROPERTY_ALLOWED = {
   background: ['x', 'y', 'scale', 'opacity'],
   audio: ['volume'],
   textbox: ['x', 'y', 'width', 'height', 'opacity', 'fontSizePx', 'backgroundOpacity'],
+  camera: ['x', 'y', 'zoom', 'rotation', 'shake'],
 };
 
 export const EASING_PRESETS = {
@@ -336,6 +341,7 @@ export function listTrackCandidates(sceneNode) {
   for (const property of PROPERTY_ALLOWED.background) candidates.push({ kind: 'background', property });
   for (const property of PROPERTY_ALLOWED.audio) candidates.push({ kind: 'audio', property });
   for (const property of PROPERTY_ALLOWED.textbox) candidates.push({ kind: 'textbox', property });
+  for (const property of PROPERTY_ALLOWED.camera) candidates.push({ kind: 'camera', property });
   return candidates;
 }
 
@@ -364,6 +370,7 @@ export function resolveSceneValues(project, sceneNode, timeMs) {
     })),
     textbox: { ...(sceneNode.textbox ?? {}) },
     audio: { ...(sceneNode.audio ?? {}) },
+    camera: { x: 0, y: 0, zoom: 1, rotation: 0, shake: 0 },
     overridden: [],
   };
   const timeline = getSceneTimeline(project, sceneNode.id);
@@ -380,6 +387,8 @@ export function resolveSceneValues(project, sceneNode, timeMs) {
       result.audio[track.property] = value;
     } else if (track.kind === 'textbox') {
       result.textbox[track.property] = value;
+    } else if (track.kind === 'camera') {
+      result.camera[track.property] = value;
     }
   }
   return result;

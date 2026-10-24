@@ -1824,6 +1824,26 @@
           "items": {
             "$ref": "#/$defs/sceneVariable"
           }
+        },
+        "foreground": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/foregroundLayer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "particles": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/particleLayer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       }
     },
@@ -2569,6 +2589,9 @@
         },
         {
           "$ref": "#/$defs/textboxTrack"
+        },
+        {
+          "$ref": "#/$defs/cameraTrack"
         }
       ]
     },
@@ -2857,6 +2880,125 @@
           }
         }
       ]
+    },
+    "foregroundLayer": {
+      "type": "object",
+      "required": [
+        "assetId"
+      ],
+      "additionalProperties": false,
+      "description": "前景层：叠在立绘之上、文本框之下的图片；可按镜头视差偏移。",
+      "properties": {
+        "assetId": {
+          "$ref": "#/$defs/assetId"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "fit": {
+          "enum": [
+            "cover",
+            "contain",
+            "stretch"
+          ]
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 0.05,
+          "maximum": 5
+        },
+        "scrollX": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "scrollY": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        }
+      }
+    },
+    "particleLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "粒子层：运行时程序化生成，不依赖视频。",
+      "required": [
+        "preset"
+      ],
+      "properties": {
+        "preset": {
+          "enum": [
+            "rain",
+            "snow",
+            "dust",
+            "embers",
+            "sparkles",
+            "none"
+          ]
+        },
+        "density": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "speed": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 5
+        },
+        "wind": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        }
+      }
+    },
+    "cameraTrack": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "property",
+        "keys"
+      ],
+      "additionalProperties": false,
+      "description": "原生镜头轨道：画面层（背景/立绘/前景）的平移、缩放、旋转与抖动，不影响文本框。",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/trackId"
+        },
+        "kind": {
+          "const": "camera"
+        },
+        "property": {
+          "enum": [
+            "x",
+            "y",
+            "zoom",
+            "rotation",
+            "shake"
+          ]
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keyframe"
+          }
+        }
+      }
     }
   }
 }

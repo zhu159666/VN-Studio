@@ -588,8 +588,120 @@ export function createRuntime(options = {}) {
     context.restore();
   }
 
-  function drawBackground(state) {
-    const fallback = settings.backgroundColor || '#070b11';
+  /** 原生镜头：只作用于世界层（背景/立绘/前景/粒子），文本框与选项保持屏幕空间。 */
+  function applyCameraTransform(state) {
+    const camera = state?.stage?.camera || {};
+    const zoom = clamp(asNumber(camera.zoom, 1), 0.1, 5);
+    const rotation = asNumber(camera.rotation, 0);
+    const shake = clamp(asNumber(camera.shake, 0), 0, 1);
+    const offsetX = asNumber(camera.x, 0) * stageWidth;
+    const offsetY = asNumber(camera.y, 0) * stageHeight;
+    const time = performance.now() / 1000;
+    const shakeX = shake * 18 * (Math.sin(time * 37) + 0.45 * Math.sin(time * 17.3));
+    const shakeY = shake * 14 * (Math.cos(time * 43) + 0.4 * Math.cos(time * 23.7));
+    const cx = stageWidth / 2;
+    const cy = stageHeight / 2;
+    context.translate(cx + offsetX + shakeX, cy + offsetY + shakeY);
+    if (rotation) context.rotate((rotation * Math.PI) / 180);
+    context.scale(zoom, zoom);
+    context.translate(-cx, -cy);
+  }
+
+  function drawForeground(state) {
+    const foreground = state?.stage?.foreground;
+    if (!foreground || !foreground.assetId) return;
+    const entry = ensureImage(foreground.assetId);
+    if (!entry || entry.status !== 'ready') return;
+    const imageWidth = entry.image.naturalWidth || entry.asset.width || stageWidth;
+    const imageHeight = entry.image.naturalHeight || entry.asset.height || stageHeight;
+    const fit = foreground.fit === 'contain' || foreground.fit === 'stretch' ? foreground.fit : 'cover';
+    const scale = clamp(asNumber(foreground.scale, 1), 0.05, 5);
+    let drawWidth;
+    let drawHeight;
+    if (fit === 'stretch') {
+      drawWidth = stageWidth * scale;
+      drawHeight = stageHeight * scale;
+    } else {
+      const base =
+        fit === 'cover'
+          ? Math.max(stageWidth / imageWidth, stageHeight / imageHeight)
+          : Math.min(stageWidth / imageWidth, stageHeight / imageHeight);
+      drawWidth = imageWidth * base * scale;
+      drawHeight = imageHeight * base * scale;
+    }
+    const dx = (stageWidth - drawWidth) / 2 + asNumber(foreground.scrollX, 0) * stageWidth;
+    const dy = (stageHeight - drawHeight) / 2 + asNumber(foreground.scrollY, 0) * stageHeight;
+    context.save();
+    context.globalAlpha = clamp01(foreground.opacity, 1);
+    context.drawImage(entry.image, dx, dy, drawWidth, drawHeight);
+    context.restore();
+  }
+
+  function drawParticles(state) {
+    const config = state?.stage?.particles;
+    if (!config || !config.preset || config.preset === 'none') return;
+    const preset = config.preset;
+    const density = clamp(asNumber(config.density, 1), 0, 3);
+    const speed = clamp(asNumber(config.speed, 1), 0.1, 5);
+    const wind = clamp(asNumber(config.wind, 0), -2, 2);
+    const alpha = clamp01(config.opacity, 0.7);
+    const count = Math.round(90 * density);
+    if (count <= 0) return;
+    const time = (performance.now() / 1000) * speed;
+    const color =
+      config.color ||
+      (preset === 'embers'
+        ? '#ff9a3c'
+        : preset === 'snow'
+          ? '#eaf4ff'
+          : preset === 'dust'
+            ? '#d8c8a8'
+            : preset === 'sparkles'
+              ? '#ffe8a8'
+              : '#a9c8e8');
+    context.save();
+    context.globalAlpha = alpha;
+    context.strokeStyle = color;
+    context.fillStyle = color;
+    for (let i = 0; i < count; i += 1) {
+      const hash = Math.abs(Math.sin((i + 1) * 12.9898) * 43758.5453) % 1;
+      const hash2 = Math.abs(Math.sin((i + 7) * 78.233) * 22543.713) % 1;
+      const x = ((hash * stageWidth + wind * time * 60 + time * 30) % (stageWidth + 120)) - 60;
+      if (preset === 'rain') {
+        const y = ((hash2 * stageHeight + time * 420) % (stageHeight + 120)) - 60;
+        const length = 12 + hash * 18;
+        context.lineWidth = 1 + hash * 1.4;
+        context.beginPath();
+        context.moveTo(x, y);
+        context.lineTo(x - wind * 6, y + length);
+        context.stroke();
+      } else if (preset === 'embers') {
+        const y = stageHeight - ((hash2 * stageHeight + time * 80) % (stageHeight + 80));
+        const size = 1 + hash * 2.2;
+        context.beginPath();
+        context.arc(x, y, size, 0, Math.PI * 2);
+        context.fill();
+      } else if (preset === 'sparkles') {
+        const y = hash2 * stageHeight;
+        const twinkle = 0.35 + 0.65 * Math.abs(Math.sin(time * 2 + i));
+        context.globalAlpha = alpha * twinkle;
+        const size = 1 + hash * 2;
+        context.beginPath();
+        context.arc(x, y, size, 0, Math.PI * 2);
+        context.fill();
+      } else {
+        const y = ((hash2 * stageHeight + time * (preset === 'snow' ? 45 : 16)) % (stageHeight + 80)) - 40;
+        const sway = preset === 'snow' ? Math.sin(time + i) * 18 : Math.sin(time * 0.3 + i) * 8;
+        const size = preset === 'snow' ? 1.2 + hash * 2.4 : 0.8 + hash * 1.6;
+        context.beginPath();
+        context.arc(x + sway, y, size, 0, Math.PI * 2);
+        context.fill();
+      }
+    }
+    context.restore();
+  }
+
+  function drawBackground(state) {    const fallback = settings.backgroundColor || '#070b11';
     context.fillStyle = fallback;
     context.fillRect(0, 0, stageWidth, stageHeight);
     const background = state?.stage?.background;
@@ -854,8 +966,15 @@ export function createRuntime(options = {}) {
     context.save();
     context.globalAlpha = 1;
     context.clearRect(0, 0, stageWidth, stageHeight);
+    context.fillStyle = settings.backgroundColor || '#070b11';
+    context.fillRect(0, 0, stageWidth, stageHeight);
+    context.save();
+    applyCameraTransform(state);
     drawBackground(state);
     drawStageImages(state);
+    drawForeground(state);
+    drawParticles(state);
+    context.restore();
     drawPortrait(state);
     drawTextbox(state);
     context.restore();

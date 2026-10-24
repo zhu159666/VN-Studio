@@ -630,6 +630,9 @@ export function createEngine(options = {}) {
       uiImages: [],
       textbox: { ...DEFAULT_TEXTBOX },
       audio: { ...DEFAULT_AUDIO_STATE, sfx: [] },
+      camera: { x: 0, y: 0, zoom: 1, rotation: 0, shake: 0 },
+      foreground: null,
+      particles: null,
     };
   }
 
@@ -680,6 +683,33 @@ export function createEngine(options = {}) {
         loop: values.audio?.loop === true,
         sfx: Array.isArray(values.audio?.sfx) ? values.audio.sfx : [],
       },
+      camera: {
+        x: toFiniteNumber(values.camera?.x, 0),
+        y: toFiniteNumber(values.camera?.y, 0),
+        zoom: Math.max(0.1, toFiniteNumber(values.camera?.zoom, 1)),
+        rotation: toFiniteNumber(values.camera?.rotation, 0),
+        shake: Math.max(0, toFiniteNumber(values.camera?.shake, 0)),
+      },
+      foreground: sceneNode.foreground
+        ? {
+            assetId: sceneNode.foreground.assetId ?? null,
+            opacity: toFiniteNumber(sceneNode.foreground.opacity, 1),
+            fit: sceneNode.foreground.fit ?? 'cover',
+            scale: toFiniteNumber(sceneNode.foreground.scale, 1),
+            scrollX: toFiniteNumber(sceneNode.foreground.scrollX, 0),
+            scrollY: toFiniteNumber(sceneNode.foreground.scrollY, 0),
+          }
+        : null,
+      particles: sceneNode.particles
+        ? {
+            preset: sceneNode.particles.preset ?? 'none',
+            density: toFiniteNumber(sceneNode.particles.density, 1),
+            speed: toFiniteNumber(sceneNode.particles.speed, 1),
+            wind: toFiniteNumber(sceneNode.particles.wind, 0),
+            opacity: toFiniteNumber(sceneNode.particles.opacity, 0.7),
+            color: sceneNode.particles.color ?? null,
+          }
+        : null,
     };
   }
 

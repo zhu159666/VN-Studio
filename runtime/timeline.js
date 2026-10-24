@@ -182,6 +182,7 @@ export function resolveSceneValues(project, sceneNode, timeMs) {
     uiImages: Array.isArray(node.uiImages) ? node.uiImages.map(baseSprite) : [],
     textbox: baseTextbox(node.textbox),
     audio: baseAudio(node.audio),
+    camera: { x: 0, y: 0, zoom: 1, rotation: 0, shake: 0 },
     overridden: [],
   };
   const timeline = getTimeline(project, node.id);
@@ -217,6 +218,9 @@ export function resolveSceneValues(project, sceneNode, timeMs) {
       applied = true;
     } else if (track.kind === 'textbox') {
       result.textbox[track.property] = value;
+      applied = true;
+    } else if (track.kind === 'camera') {
+      result.camera[track.property] = value;
       applied = true;
     }
     if (applied) {

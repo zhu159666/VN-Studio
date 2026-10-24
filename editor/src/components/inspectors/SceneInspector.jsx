@@ -31,6 +31,16 @@ const BACKGROUND_FITS = [
   ['stretch', 'stretch · 拉伸铺满'],
 ];
 
+const FOREGROUND_FITS = BACKGROUND_FITS;
+const PARTICLE_PRESETS = [
+  ['rain', '雨'],
+  ['snow', '雪'],
+  ['dust', '浮尘'],
+  ['embers', '火星'],
+  ['sparkles', '光点'],
+  ['none', '关闭'],
+];
+
 const DEFAULT_TEXTBOX = {
   x: 0.5,
   y: 0.84,
@@ -53,6 +63,32 @@ function patchBackground(background, patch) {
     opacity: background.opacity ?? 1,
     ...patch,
   };
+}
+
+function patchForeground(foreground, patch) {
+  const next = {
+    assetId: foreground.assetId,
+    opacity: foreground.opacity ?? 1,
+    fit: foreground.fit ?? 'cover',
+    scale: foreground.scale ?? 1,
+    scrollX: foreground.scrollX ?? 0,
+    scrollY: foreground.scrollY ?? 0,
+    ...patch,
+  };
+  return next;
+}
+
+function patchParticles(particles, patch) {
+  const next = {
+    preset: particles.preset ?? 'rain',
+    density: particles.density ?? 1,
+    speed: particles.speed ?? 1,
+    wind: particles.wind ?? 0,
+    opacity: particles.opacity ?? 0.6,
+    ...patch,
+  };
+  if (next.color == null) delete next.color;
+  return next;
 }
 
 function makeSprite(base, patch) {
@@ -279,12 +315,15 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
   const backgroundAssets = images.filter((asset) => asset.role === 'background');
   const spriteAssets = images.filter((asset) => asset.role === 'sprite');
   const uiImageAssets = images.filter((asset) => asset.role === 'ui');
+  const foregroundAssets = images.filter((asset) => ['ui', 'background', 'other'].includes(asset.role));
   const bgmAssets = audioAssets.filter((asset) => asset.role === 'bgm');
   const sfxAssets = audioAssets.filter((asset) => asset.role === 'sfx');
 
   const background = node.background ?? null;
   const sprites = node.sprites ?? [];
   const uiImages = node.uiImages ?? [];
+  const foreground = node.foreground ?? null;
+  const particles = node.particles ?? null;
   const textbox = node.textbox ?? DEFAULT_TEXTBOX;
   const audio = node.audio ?? { bgmAssetId: null, volume: 0.8, loop: true };
   const sfx = audio.sfx ?? [];
@@ -305,6 +344,20 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
         opacity: 1,
       },
     });
+  };
+
+  const enableForeground = () => {
+    if (!foregroundAssets.length) {
+      notify('素材库中没有可用的前景图片（ui/background/other）', 'error');
+      return;
+    }
+    updateNode({
+      foreground: { assetId: foregroundAssets[0].id, opacity: 1, fit: 'cover', scale: 1, scrollX: 0, scrollY: 0 },
+    });
+  };
+
+  const enableParticles = () => {
+    updateNode({ particles: { preset: 'rain', density: 1, speed: 1, wind: 0, opacity: 0.6 } });
   };
 
   const baseTextbox = {
@@ -531,6 +584,141 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
           title="B2 · UI 图片层"
           defaultOpen={false}
         />
+
+        {/* B3. 前景层（可选） */}
+        <Section title="B3 · 前景层" defaultOpen={false} badge={foreground ? foreground.assetId : '关'}>
+          {foreground ? (
+            <>
+              <AssetSelect
+                label="前景图片"
+                assets={foregroundAssets}
+                value={foreground.assetId}
+                onChange={(assetId) => {
+                  if (assetId) updateNode({ foreground: patchForeground(foreground, { assetId }) });
+                }}
+                projectDir={projectDir}
+                thumbnail
+                required
+                emptyHint="素材库中没有 ui/background/other 图片。"
+              />
+              <FieldSelect
+                label="铺满方式 fit"
+                value={foreground.fit ?? 'cover'}
+                onChange={(fit) => updateNode({ foreground: patchForeground(foreground, { fit }) })}
+                options={FOREGROUND_FITS}
+                required
+              />
+              <div className="vn-insp-ctl-grid-2">
+                <FieldNumber
+                  label="不透明度"
+                  value={foreground.opacity ?? 1}
+                  min={0}
+                  max={1}
+                  onChange={(opacity) => updateNode({ foreground: patchForeground(foreground, { opacity }) })}
+                />
+                <FieldNumber
+                  label="缩放"
+                  value={foreground.scale ?? 1}
+                  min={0.05}
+                  max={5}
+                  onChange={(scale) => updateNode({ foreground: patchForeground(foreground, { scale }) })}
+                />
+                <FieldNumber
+                  label="视差 X"
+                  value={foreground.scrollX ?? 0}
+                  min={-2}
+                  max={2}
+                  onChange={(scrollX) => updateNode({ foreground: patchForeground(foreground, { scrollX }) })}
+                />
+                <FieldNumber
+                  label="视差 Y"
+                  value={foreground.scrollY ?? 0}
+                  min={-2}
+                  max={2}
+                  onChange={(scrollY) => updateNode({ foreground: patchForeground(foreground, { scrollY }) })}
+                />
+              </div>
+              <div className="vn-insp-ctl-actions">
+                <SmallButton variant="danger" onClick={() => updateNode({ foreground: null })}>
+                  清除前景层
+                </SmallButton>
+              </div>
+            </>
+          ) : (
+            <Row label="前景层">
+              <div className="vn-insp-ctl-inline">
+                <span className="vn-insp-ctl-null">未启用</span>
+                <SmallButton onClick={enableForeground} disabled={!foregroundAssets.length}>
+                  启用前景
+                </SmallButton>
+              </div>
+            </Row>
+          )}
+          <Hint kind="info">前景层叠在立绘之上、文本框之下，可按镜头做视差偏移。</Hint>
+        </Section>
+
+        {/* B4. 粒子层（可选） */}
+        <Section title="B4 · 粒子层" defaultOpen={false} badge={particles ? particles.preset : '关'}>
+          {particles ? (
+            <>
+              <FieldSelect
+                label="粒子 preset"
+                value={particles.preset ?? 'rain'}
+                onChange={(preset) => updateNode({ particles: patchParticles(particles, { preset }) })}
+                options={PARTICLE_PRESETS}
+                required
+              />
+              <div className="vn-insp-ctl-grid-2">
+                <FieldNumber
+                  label="密度"
+                  value={particles.density ?? 1}
+                  min={0}
+                  max={3}
+                  onChange={(density) => updateNode({ particles: patchParticles(particles, { density }) })}
+                />
+                <FieldNumber
+                  label="速度"
+                  value={particles.speed ?? 1}
+                  min={0.1}
+                  max={5}
+                  onChange={(speed) => updateNode({ particles: patchParticles(particles, { speed }) })}
+                />
+                <FieldNumber
+                  label="风向"
+                  value={particles.wind ?? 0}
+                  min={-2}
+                  max={2}
+                  onChange={(wind) => updateNode({ particles: patchParticles(particles, { wind }) })}
+                />
+                <FieldNumber
+                  label="不透明度"
+                  value={particles.opacity ?? 0.6}
+                  min={0}
+                  max={1}
+                  onChange={(opacity) => updateNode({ particles: patchParticles(particles, { opacity }) })}
+                />
+              </div>
+              <FieldColor
+                label="粒子颜色（可选）"
+                value={particles.color ?? '#a9c8e8'}
+                onChange={(color) => updateNode({ particles: patchParticles(particles, { color }) })}
+              />
+              <div className="vn-insp-ctl-actions">
+                <SmallButton variant="danger" onClick={() => updateNode({ particles: null })}>
+                  清除粒子层
+                </SmallButton>
+              </div>
+            </>
+          ) : (
+            <Row label="粒子层">
+              <div className="vn-insp-ctl-inline">
+                <span className="vn-insp-ctl-null">未启用</span>
+                <SmallButton onClick={enableParticles}>启用粒子</SmallButton>
+              </div>
+            </Row>
+          )}
+          <Hint kind="info">粒子是运行时实时生成，不会增加图片素材体积。</Hint>
+        </Section>
 
         {/* C. 文本框 */}
         <Section title="C · 文本框" defaultOpen badge={`${baseTextbox.fontSizePx}px`}>

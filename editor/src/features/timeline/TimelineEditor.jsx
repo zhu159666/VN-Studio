@@ -613,7 +613,7 @@ export default function TimelineEditor({ project, sceneNode }) {
   }
 
   const candidates = listTrackCandidates(sceneNode);
-  const grouped = ['sprite', 'background', 'audio', 'textbox'].map((kind) => ({
+  const grouped = ['sprite', 'background', 'audio', 'textbox', 'camera'].map((kind) => ({
     kind,
     label: TRACK_KINDS[kind]?.label ?? kind,
     items: candidates.filter((candidate) => candidate.kind === kind),
