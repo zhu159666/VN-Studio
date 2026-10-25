@@ -149,6 +149,7 @@ export function createEngine(options = {}) {
     playtimeMs: 0,
     stage: null,
     pending: null,
+    normal: null,
 
     start,
     advance,
@@ -373,6 +374,7 @@ export function createEngine(options = {}) {
       const node = getNodeById(nodeId);
       if (!node) return fail(`节点不存在：${nodeId}`);
       engine.nodeId = node.id;
+      if (node.type !== 'scene') engine.normal = null;
       switch (node.type) {
         case 'jump': {
           const target = node.targetNodeId;
@@ -410,7 +412,14 @@ export function createEngine(options = {}) {
         case 'scene': {
           applySceneVariables(node);
           engine.stage = { sceneNodeId: node.id, timeMs: 0 };
-          engine.pending = { type: 'scene' };
+          const entries = Array.isArray(node.dialogues) ? node.dialogues : [];
+          if (entries.length > 0) {
+            engine.normal = { index: 0 };
+            engine.pending = { type: entries[0]?.type === 'branch' ? 'normal-choice' : 'normal' };
+          } else {
+            engine.normal = null;
+            engine.pending = { type: 'scene' };
+          }
           engine.status = ENGINE_STATUS.RUNNING;
           engine.error = null;
           return { ok: true };
@@ -466,6 +475,20 @@ export function createEngine(options = {}) {
         return { ok: false, error: engine.error ?? '当前状态不可推进' };
       }
       const type = engine.pending?.type;
+      if (type === 'normal') {
+        const node = getCurrentNode();
+        const entries = Array.isArray(node?.dialogues) ? node.dialogues : [];
+        const nextIndex = (engine.normal?.index ?? 0) + 1;
+        if (nextIndex >= entries.length) {
+          const edge = findEdge(engine.nodeId, 'next');
+          if (edge.missing) return endGame();
+          if (edge.error) return fail(edge.error);
+          return enterNode(edge.to);
+        }
+        engine.normal = { index: nextIndex };
+        engine.pending = { type: entries[nextIndex]?.type === 'branch' ? 'normal-choice' : 'normal' };
+        return { ok: true };
+      }
       if (type !== 'dialogue' && type !== 'scene') {
         return { ok: false, error: `当前节点（${type ?? '无'}）不能通过 advance 推进` };
       }
@@ -481,6 +504,32 @@ export function createEngine(options = {}) {
     return safeCall(() => {
       if (engine.status !== ENGINE_STATUS.RUNNING) {
         return { ok: false, error: engine.error ?? '当前状态不可推进' };
+      }
+      if (engine.pending?.type === 'normal-choice') {
+        const node = getCurrentNode();
+        const entries = Array.isArray(node?.dialogues) ? node.dialogues : [];
+        const entry = entries[engine.normal?.index ?? 0];
+        const options = Array.isArray(entry?.options) ? entry.options : [];
+        const option = options.find((item) => item && item.id === exitId);
+        if (!option) return fail(`分支对话 ${node?.id ?? ''} 不存在选项：${exitId}`);
+        if (option.setVariables && typeof option.setVariables === 'object') {
+          for (const [key, value] of Object.entries(option.setVariables)) {
+            const type = Array.isArray(value)
+              ? 'array'
+              : value === null
+                ? 'null'
+                : typeof value === 'boolean'
+                  ? 'boolean'
+                  : typeof value === 'number'
+                    ? 'number'
+                    : 'string';
+            engine.variables[key] = { type, value: cloneJson(value) };
+          }
+        }
+        if (typeof option.targetNodeId !== 'string' || !option.targetNodeId) {
+          return fail(`分支选项 ${option.id} 缺少 targetNodeId`);
+        }
+        return enterNode(option.targetNodeId);
       }
       if (engine.pending?.type !== 'choice') {
         return { ok: false, error: '当前不是选项节点' };
@@ -724,6 +773,7 @@ export function createEngine(options = {}) {
           nodeId: engine.nodeId,
           nodeType: node?.type ?? null,
           playtimeMs: Math.round(toFiniteNumber(engine.playtimeMs, 0)),
+          autoSave: node?.autoSave === true,
           stage: computeStageState(),
           dialogue: null,
           choice: null,
@@ -733,7 +783,32 @@ export function createEngine(options = {}) {
         };
         const pendingType = engine.pending?.type;
         if (!node) return state;
-        if (pendingType === 'dialogue') {
+        const normalEntries = Array.isArray(node.dialogues) ? node.dialogues : [];
+        const normalEntry = normalEntries[engine.normal?.index ?? 0] || null;
+        if (pendingType === 'normal' && normalEntry) {
+          const speedCps = typeof normalEntry.speedCps === 'number'
+            ? normalEntry.speedCps
+            : toFiniteNumber(project.settings?.textSpeedCps, 0);
+          state.dialogue = {
+            speaker: normalEntry.speaker ?? null,
+            text: typeof normalEntry.text === 'string' ? normalEntry.text : '',
+            portrait: normalEntry.portrait ?? null,
+            voice: null,
+            speedCps,
+            autoAdvanceMs: normalEntry.autoAdvanceMs ?? null,
+            animation: normalEntry.animation ?? 'none',
+            sfx: Array.isArray(normalEntry.sfx) ? normalEntry.sfx : [],
+          };
+        } else if (pendingType === 'normal-choice' && normalEntry) {
+          state.choice = {
+            prompt: typeof normalEntry.prompt === 'string' ? normalEntry.prompt : '',
+            options: (Array.isArray(normalEntry.options) ? normalEntry.options : []).map((option) => ({
+              id: option?.id ?? '',
+              name: option?.label ?? '',
+              label: option?.label ?? null,
+            })),
+          };
+        } else if (pendingType === 'dialogue') {
           const speedCps = typeof node.speedCps === 'number'
             ? node.speedCps
             : toFiniteNumber(project.settings?.textSpeedCps, 0);
@@ -837,6 +912,7 @@ export function createEngine(options = {}) {
       };
       if (projectTitle !== undefined) saveState.projectTitle = projectTitle;
       if (typeof source.label === 'string' && source.label) saveState.label = source.label;
+      if (engine.normal && Number.isInteger(engine.normal.index)) saveState.normalIndex = engine.normal.index;
       return saveState;
     });
   }
@@ -883,11 +959,20 @@ export function createEngine(options = {}) {
       engine.playtimeMs = Math.max(0, Math.round(toFiniteNumber(saveState.playtimeMs, 0)));
       const entered = enterNode(saveState.nodeId);
       if (!entered.ok) return entered;
+      if (engine.normal && Number.isInteger(saveState.normalIndex)) {
+        const normalNode = getCurrentNode();
+        const entries = Array.isArray(normalNode?.dialogues) ? normalNode.dialogues : [];
+        if (entries.length > 0) {
+          const index = Math.min(Math.max(0, saveState.normalIndex), entries.length - 1);
+          engine.normal = { index };
+          engine.pending = { type: entries[index]?.type === 'branch' ? 'normal-choice' : 'normal' };
+        }
+      }
 
       const savedTimeline = isPlainObject(saveState.timeline) ? saveState.timeline : null;
       const savedTimeMs = savedTimeline ? Math.max(0, Math.round(toFiniteNumber(savedTimeline.timeMs, 0))) : 0;
       const savedSceneId = savedTimeline && typeof savedTimeline.nodeId === 'string' ? savedTimeline.nodeId : null;
-      if (engine.pending?.type === 'scene' && engine.stage) {
+      if ((engine.pending?.type === 'scene' || engine.pending?.type === 'normal' || engine.pending?.type === 'normal-choice') && engine.stage) {
         // 当前就停在该场景：沿用该场景，时间取存档里同一场景的播放头。
         engine.stage = {
           sceneNodeId: engine.nodeId,

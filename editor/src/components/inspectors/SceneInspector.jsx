@@ -360,6 +360,81 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
     updateNode({ particles: { preset: 'rain', density: 1, speed: 1, wind: 0, opacity: 0.6 } });
   };
 
+  const dialogues = Array.isArray(node.dialogues) ? node.dialogues : [];
+  const patchDialogues = (next) => updateNode({ dialogues: next });
+  const patchDialogue = (index, patch) =>
+    patchDialogues(dialogues.map((entry, itemIndex) => (itemIndex === index ? { ...entry, ...patch } : entry)));
+  const moveDialogue = (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= dialogues.length) return;
+    const next = [...dialogues];
+    [next[index], next[target]] = [next[target], next[index]];
+    patchDialogues(next);
+  };
+  const removeDialogue = (index) => patchDialogues(dialogues.filter((_, itemIndex) => itemIndex !== index));
+  const addDialogueLine = () => {
+    const id = `dlg_${Date.now().toString(36)}_${dialogues.length}`;
+    patchDialogues([
+      ...dialogues,
+      {
+        id,
+        type: 'line',
+        speaker: '我',
+        text: '新台词',
+        portrait: spriteAssets.length
+          ? { assetId: spriteAssets[0].id, x: 0.24, y: 0.56, scale: 1.3, expression: 'normal' }
+          : null,
+        animation: 'none',
+        autoAdvanceMs: null,
+      },
+    ]);
+  };
+  const addDialogueBranch = () => {
+    const target = project.nodes.find(
+      (item) => item.id !== node.id && ['scene', 'video', 'minigame', 'condition'].includes(item.type),
+    );
+    const id = `br_${Date.now().toString(36)}_${dialogues.length}`;
+    patchDialogues([
+      ...dialogues,
+      {
+        id,
+        type: 'branch',
+        prompt: '选择',
+        options: target
+          ? [{ id: `opt_${Date.now().toString(36)}`, label: '选项一', targetNodeId: target.id }]
+          : [],
+      },
+    ]);
+  };
+  const patchBranchOption = (dialogueIndex, optionIndex, patch) => {
+    const entry = dialogues[dialogueIndex];
+    const options = (entry.options ?? []).map((option, index) =>
+      index === optionIndex ? { ...option, ...patch } : option,
+    );
+    patchDialogue(dialogueIndex, { options });
+  };
+  const addBranchOption = (dialogueIndex) => {
+    const entry = dialogues[dialogueIndex];
+    const target = project.nodes.find(
+      (item) => item.id !== node.id && ['scene', 'video', 'minigame', 'condition'].includes(item.type),
+    );
+    patchDialogue(dialogueIndex, {
+      options: [
+        ...(entry.options ?? []),
+        { id: `opt_${Date.now().toString(36)}`, label: '新选项', targetNodeId: target?.id ?? '' },
+      ],
+    });
+  };
+  const removeBranchOption = (dialogueIndex, optionIndex) => {
+    const entry = dialogues[dialogueIndex];
+    patchDialogue(dialogueIndex, {
+      options: (entry.options ?? []).filter((_, index) => index !== optionIndex),
+    });
+  };
+  const targetOptions = project.nodes
+    .filter((item) => item.id !== node.id && ['scene', 'video', 'minigame', 'condition'].includes(item.type))
+    .map((item) => [item.id, `${item.name || item.id} (${item.type})`]);
+
   const baseTextbox = {
     x: textbox.x ?? DEFAULT_TEXTBOX.x,
     y: textbox.y ?? DEFAULT_TEXTBOX.y,
@@ -718,6 +793,192 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
             </Row>
           )}
           <Hint kind="info">粒子是运行时实时生成，不会增加图片素材体积。</Hint>
+        </Section>
+
+        {/* C0. 对话序列（普通节点内置） */}
+        <Section title="C0 · 对话序列" defaultOpen badge={`${dialogues.length} 条`}>
+          <FieldCheckbox
+            label="自动存档点 autoSave"
+            value={node.autoSave === true}
+            onChange={(autoSave) => updateNode({ autoSave })}
+          />
+          <Hint kind="info">
+            普通节点内按顺序播放；branch 会立即弹出选项，选项必须连接到下一个节点。
+          </Hint>
+          {dialogues.length === 0 ? (
+            <p className="vn-insp-ctl-empty">还没有对话，点下面添加。</p>
+          ) : null}
+          {dialogues.map((entry, index) => (
+            <div className="vn-scene-insp-item" key={entry.id}>
+              <div className="vn-scene-insp-item-head">
+                <span className="vn-scene-insp-item-title">
+                  {index + 1}. {entry.type === 'branch' ? '分支对话' : '普通对话'}
+                </span>
+                <SmallButton onClick={() => moveDialogue(index, -1)} disabled={index === 0} title="上移">
+                  ↑
+                </SmallButton>
+                <SmallButton
+                  onClick={() => moveDialogue(index, 1)}
+                  disabled={index === dialogues.length - 1}
+                  title="下移"
+                >
+                  ↓
+                </SmallButton>
+                <SmallButton variant="danger" onClick={() => removeDialogue(index)}>
+                  删除
+                </SmallButton>
+              </div>
+
+              {entry.type === 'branch' ? (
+                <>
+                  <FieldText
+                    label="分支提示 prompt"
+                    value={entry.prompt ?? ''}
+                    onChange={(prompt) => patchDialogue(index, { prompt })}
+                  />
+                  {(entry.options ?? []).map((option, optionIndex) => (
+                    <div className="vn-scene-insp-item" key={option.id}>
+                      <div className="vn-scene-insp-item-head">
+                        <span className="vn-scene-insp-item-title">选项 {optionIndex + 1}</span>
+                        <SmallButton
+                          variant="danger"
+                          disabled={(entry.options ?? []).length <= 1}
+                          onClick={() => removeBranchOption(index, optionIndex)}
+                        >
+                          删除
+                        </SmallButton>
+                      </div>
+                      <FieldText
+                        label="选项文字"
+                        value={option.label ?? ''}
+                        onChange={(label) => patchBranchOption(index, optionIndex, { label })}
+                      />
+                      <FieldSelect
+                        label="下一个节点 targetNodeId"
+                        value={option.targetNodeId ?? ''}
+                        options={targetOptions}
+                        onChange={(targetNodeId) => patchBranchOption(index, optionIndex, { targetNodeId })}
+                        required
+                      />
+                    </div>
+                  ))}
+                  <div className="vn-insp-ctl-actions">
+                    <SmallButton onClick={() => addBranchOption(index)}>添加选项</SmallButton>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <FieldText
+                    label="说话人 speaker"
+                    value={entry.speaker ?? ''}
+                    onChange={(speaker) => patchDialogue(index, { speaker })}
+                  />
+                  <FieldTextArea
+                    label="台词 text"
+                    value={entry.text ?? ''}
+                    rows={3}
+                    onChange={(text) => patchDialogue(index, { text })}
+                  />
+                  <FieldSelect
+                    label="动画 animation"
+                    value={entry.animation ?? 'none'}
+                    options={[
+                      ['none', '无'],
+                      ['fade', '淡入'],
+                      ['slide-left', '左侧滑入'],
+                      ['slide-right', '右侧滑入'],
+                      ['pop', '弹出'],
+                    ]}
+                    onChange={(animation) => patchDialogue(index, { animation })}
+                  />
+                  <FieldNumber
+                    label="自动前进 autoAdvanceMs（0=手动）"
+                    value={entry.autoAdvanceMs ?? 0}
+                    min={0}
+                    max={600000}
+                    integer
+                    suffix="ms"
+                    onChange={(value) => patchDialogue(index, { autoAdvanceMs: value > 0 ? value : null })}
+                  />
+                  {entry.portrait ? (
+                    <>
+                      <AssetSelect
+                        label="立绘 portrait"
+                        assets={spriteAssets}
+                        value={entry.portrait.assetId}
+                        onChange={(assetId) => {
+                          if (assetId) {
+                            patchDialogue(index, { portrait: { ...entry.portrait, assetId } });
+                          }
+                        }}
+                        projectDir={projectDir}
+                        thumbnail
+                        required
+                      />
+                      <div className="vn-insp-ctl-grid-2">
+                        <FieldNumber
+                          label="立绘 x"
+                          value={entry.portrait.x ?? 0.24}
+                          min={0}
+                          max={1}
+                          onChange={(x) =>
+                            patchDialogue(index, { portrait: { ...entry.portrait, x } })
+                          }
+                        />
+                        <FieldNumber
+                          label="立绘 y"
+                          value={entry.portrait.y ?? 0.56}
+                          min={0}
+                          max={1}
+                          onChange={(y) =>
+                            patchDialogue(index, { portrait: { ...entry.portrait, y } })
+                          }
+                        />
+                        <FieldNumber
+                          label="立绘缩放"
+                          value={entry.portrait.scale ?? 1.3}
+                          min={0.05}
+                          max={3}
+                          onChange={(scale) =>
+                            patchDialogue(index, { portrait: { ...entry.portrait, scale } })
+                          }
+                        />
+                      </div>
+                      <div className="vn-insp-ctl-actions">
+                        <SmallButton variant="danger" onClick={() => patchDialogue(index, { portrait: null })}>
+                          移除立绘
+                        </SmallButton>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="vn-insp-ctl-actions">
+                      <SmallButton
+                        onClick={() =>
+                          spriteAssets.length
+                            ? patchDialogue(index, {
+                                portrait: {
+                                  assetId: spriteAssets[0].id,
+                                  x: 0.24,
+                                  y: 0.56,
+                                  scale: 1.3,
+                                  expression: 'normal',
+                                },
+                              })
+                            : notify('素材库中没有立绘素材', 'error')
+                        }
+                      >
+                        添加立绘
+                      </SmallButton>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+          <div className="vn-insp-ctl-actions">
+            <SmallButton onClick={addDialogueLine}>添加普通对话</SmallButton>
+            <SmallButton onClick={addDialogueBranch}>添加分支对话</SmallButton>
+          </div>
         </Section>
 
         {/* C. 文本框 */}

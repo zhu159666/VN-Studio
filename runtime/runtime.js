@@ -1281,9 +1281,13 @@ export function createRuntime(options = {}) {
 
   function autoSaveScene(node) {
     if (!storage || !engine || phase !== 'playing' || destroyed) return;
+    if (!node) return;
+    if (node.autoSave === false) return;
     const autoSave = settings.autoSave || {};
-    if (autoSave.enabled === false) return;
-    if (autoSave.onSceneEnter === false) return;
+    if (node.autoSave !== true) {
+      if (autoSave.enabled === false) return;
+      if (autoSave.onSceneEnter === false) return;
+    }
     try {
       const saveState = engine.serialize({
         kind: 'auto',
