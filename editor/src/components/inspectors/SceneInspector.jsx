@@ -61,6 +61,9 @@ function patchBackground(background, patch) {
     y: background.y ?? 0.5,
     scale: background.scale ?? 1,
     opacity: background.opacity ?? 1,
+    enabled: background.enabled !== false,
+    startMs: background.startMs ?? null,
+    endMs: background.endMs ?? null,
     ...patch,
   };
 }
@@ -73,6 +76,9 @@ function patchForeground(foreground, patch) {
     scale: foreground.scale ?? 1,
     scrollX: foreground.scrollX ?? 0,
     scrollY: foreground.scrollY ?? 0,
+    enabled: foreground.enabled !== false,
+    startMs: foreground.startMs ?? null,
+    endMs: foreground.endMs ?? null,
     ...patch,
   };
   return next;
@@ -85,6 +91,9 @@ function patchParticles(particles, patch) {
     speed: particles.speed ?? 1,
     wind: particles.wind ?? 0,
     opacity: particles.opacity ?? 0.6,
+    enabled: particles.enabled !== false,
+    startMs: particles.startMs ?? null,
+    endMs: particles.endMs ?? null,
     ...patch,
   };
   if (next.color == null) delete next.color;
@@ -100,6 +109,9 @@ function makeSprite(base, patch) {
     scale: base.scale ?? 1,
     zIndex: base.zIndex ?? 10,
     opacity: base.opacity ?? 1,
+    enabled: base.enabled !== false,
+    startMs: base.startMs ?? null,
+    endMs: base.endMs ?? null,
     ...patch,
   };
 }
@@ -118,6 +130,41 @@ function makeSceneVariable(base, patch) {
   };
   if (base.description != null) next.description = base.description;
   return { ...next, ...patch };
+}
+
+// ---------------------------------------------------------------------------
+// 组件启用 / 启用时长
+// ---------------------------------------------------------------------------
+
+function LayerTimingFields({ value, onChange, label = '组件' }) {
+  return (
+    <div className="vn-insp-ctl-grid-2">
+      <FieldCheckbox
+        label={`启用 ${label}`}
+        value={value?.enabled !== false}
+        onChange={(enabled) => onChange({ enabled })}
+      />
+      <span />
+      <FieldNumber
+        label="开始时间（0=场景开始）"
+        value={value?.startMs ?? 0}
+        min={0}
+        max={600000}
+        integer
+        suffix="ms"
+        onChange={(startMs) => onChange({ startMs: startMs > 0 ? startMs : null })}
+      />
+      <FieldNumber
+        label="结束时间（0=不限制）"
+        value={value?.endMs ?? 0}
+        min={0}
+        max={600000}
+        integer
+        suffix="ms"
+        onChange={(endMs) => onChange({ endMs: endMs > 0 ? endMs : null })}
+      />
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +330,11 @@ function SpriteSection({ node, project, projectDir, kind, assets, updateNode, ac
                 onChange={(opacity) => patchItem(index, { opacity })}
               />
             </div>
+            <LayerTimingFields
+              value={item}
+              label={kind === 'ui' ? 'UI' : '立绘'}
+              onChange={(patch) => patchItem(index, patch)}
+            />
           </div>
         ))}
       </SubList>
@@ -599,6 +651,11 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
                   }
                 />
               </div>
+              <LayerTimingFields
+                value={background}
+                label="背景"
+                onChange={(patch) => updateNode({ background: patchBackground(background, patch) })}
+              />
               <div className="vn-insp-ctl-actions">
                 <SmallButton
                   variant="danger"
@@ -716,6 +773,11 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
                   onChange={(scrollY) => updateNode({ foreground: patchForeground(foreground, { scrollY }) })}
                 />
               </div>
+              <LayerTimingFields
+                value={foreground}
+                label="前景"
+                onChange={(patch) => updateNode({ foreground: patchForeground(foreground, patch) })}
+              />
               <div className="vn-insp-ctl-actions">
                 <SmallButton variant="danger" onClick={() => updateNode({ foreground: null })}>
                   清除前景层
@@ -780,6 +842,11 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
                 label="粒子颜色（可选）"
                 value={particles.color ?? '#a9c8e8'}
                 onChange={(color) => updateNode({ particles: patchParticles(particles, { color }) })}
+              />
+              <LayerTimingFields
+                value={particles}
+                label="粒子"
+                onChange={(patch) => updateNode({ particles: patchParticles(particles, patch) })}
               />
               <div className="vn-insp-ctl-actions">
                 <SmallButton variant="danger" onClick={() => updateNode({ particles: null })}>

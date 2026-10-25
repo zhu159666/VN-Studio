@@ -609,7 +609,7 @@ export function createRuntime(options = {}) {
 
   function drawForeground(state) {
     const foreground = state?.stage?.foreground;
-    if (!foreground || !foreground.assetId) return;
+    if (!foreground || !foreground.assetId || !layerVisible(foreground, state)) return;
     const entry = ensureImage(foreground.assetId);
     if (!entry || entry.status !== 'ready') return;
     const imageWidth = entry.image.naturalWidth || entry.asset.width || stageWidth;
@@ -639,7 +639,7 @@ export function createRuntime(options = {}) {
 
   function drawParticles(state) {
     const config = state?.stage?.particles;
-    if (!config || !config.preset || config.preset === 'none') return;
+    if (!config || !config.preset || config.preset === 'none' || !layerVisible(config, state)) return;
     const preset = config.preset;
     const density = clamp(asNumber(config.density, 1), 0, 3);
     const speed = clamp(asNumber(config.speed, 1), 0.1, 5);
@@ -701,11 +701,21 @@ export function createRuntime(options = {}) {
     context.restore();
   }
 
-  function drawBackground(state) {    const fallback = settings.backgroundColor || '#070b11';
+  function layerVisible(item, state) {
+    if (!item || item.enabled === false) return false;
+    const time = Number(state?.stage?.timeMs);
+    const now = Number.isFinite(time) ? time : 0;
+    if (item.startMs != null && now < item.startMs) return false;
+    if (item.endMs != null && now > item.endMs) return false;
+    return true;
+  }
+
+  function drawBackground(state) {
+    const fallback = settings.backgroundColor || '#070b11';
     context.fillStyle = fallback;
     context.fillRect(0, 0, stageWidth, stageHeight);
     const background = state?.stage?.background;
-    if (!background || !background.assetId) return;
+    if (!background || !background.assetId || !layerVisible(background, state)) return;
     const entry = ensureImage(background.assetId);
     if (!entry) return;
     if (entry.status === 'error') {
@@ -752,7 +762,7 @@ export function createRuntime(options = {}) {
     if (items.length === 0) return;
     items.sort((a, b) => asNumber(a?.zIndex, 0) - asNumber(b?.zIndex, 0));
     for (const item of items) {
-      if (!item || !item.assetId) continue;
+      if (!item || !item.assetId || !layerVisible(item, state)) continue;
       const entry = ensureImage(item.assetId);
       if (!entry) continue;
       const opacity = clamp01(item.opacity, 1);

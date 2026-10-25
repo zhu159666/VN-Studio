@@ -1312,6 +1312,17 @@
         },
         "opacity": {
           "$ref": "#/$defs/opacity"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -1357,6 +1368,17 @@
         },
         "opacity": {
           "$ref": "#/$defs/opacity"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -2758,6 +2780,47 @@
         "timelinePlayheadMs": {
           "type": "integer",
           "minimum": 0
+        },
+        "groups": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "kind",
+              "itemIds"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "kind": {
+                "enum": [
+                  "asset",
+                  "node"
+                ]
+              },
+              "itemIds": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -2935,6 +2998,17 @@
           "type": "number",
           "minimum": -2,
           "maximum": 2
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -2979,6 +3053,17 @@
         "color": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "startMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endMs": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

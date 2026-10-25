@@ -588,6 +588,9 @@ async function main() {
     await sceneNode.click();
     await editorPage.waitForTimeout(800);
     await capture(editorPage, 'chromium-scene-inspector.png');
+    if (!(await editorPage.locator('body').innerText()).includes('启用 背景')) {
+      throw new Error('场景属性面板缺少组件启用/时长字段');
+    }
     await sceneNode.dblclick({ force: true });
     await editorPage.waitForTimeout(1000);
     if ((await editorPage.locator('.vn-stage-editor').count()) === 0) {
@@ -604,6 +607,20 @@ async function main() {
     }
     await capture(editorPage, 'chromium-global-flow.png');
     await editorPage.getByRole('button', { name: '关闭' }).last().click();
+    await editorPage.waitForTimeout(300);
+    await editorPage.getByRole('button', { name: '分组', exact: true }).click();
+    await editorPage.waitForTimeout(400);
+    if ((await editorPage.locator('.vn-group-manager').count()) === 0) {
+      throw new Error('分组管理没有打开');
+    }
+    await editorPage.locator('.vn-group-manager__create input').fill('冒烟分组');
+    await editorPage.locator('.vn-group-manager__create').getByRole('button', { name: '新建' }).click();
+    await editorPage.waitForTimeout(300);
+    if (!(await editorPage.locator('.vn-group-manager').innerText()).includes('冒烟分组')) {
+      throw new Error('分组创建失败');
+    }
+    await capture(editorPage, 'chromium-groups.png');
+    await editorPage.locator('.vn-group-manager').getByRole('button', { name: '关闭' }).click();
     await editorPage.waitForTimeout(300);
     if ((await editorPage.getByText('B4 · 粒子层').count()) === 0) {
       throw new Error('场景属性面板缺少原生粒子层');

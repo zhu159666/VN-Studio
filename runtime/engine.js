@@ -705,6 +705,9 @@ export function createEngine(options = {}) {
             y: toFiniteNumber(values.background.y, 0.5),
             scale: toFiniteNumber(values.background.scale, 1),
             opacity: toFiniteNumber(values.background.opacity, 1),
+            enabled: values.background.enabled !== false,
+            startMs: values.background.startMs ?? null,
+            endMs: values.background.endMs ?? null,
           }
         : null,
       sprites: (values.sprites ?? []).map((sprite) => ({
@@ -715,6 +718,9 @@ export function createEngine(options = {}) {
         scale: toFiniteNumber(sprite.scale, 1),
         zIndex: Math.round(toFiniteNumber(sprite.zIndex, 0)),
         opacity: toFiniteNumber(sprite.opacity, 1),
+        enabled: sprite.enabled !== false,
+        startMs: sprite.startMs ?? null,
+        endMs: sprite.endMs ?? null,
       })),
       uiImages: (values.uiImages ?? []).map((image) => ({
         id: image.id,
@@ -724,6 +730,9 @@ export function createEngine(options = {}) {
         scale: toFiniteNumber(image.scale, 1),
         zIndex: Math.round(toFiniteNumber(image.zIndex, 0)),
         opacity: toFiniteNumber(image.opacity, 1),
+        enabled: image.enabled !== false,
+        startMs: image.startMs ?? null,
+        endMs: image.endMs ?? null,
       })),
       textbox: { ...values.textbox },
       audio: {
@@ -747,6 +756,9 @@ export function createEngine(options = {}) {
             scale: toFiniteNumber(sceneNode.foreground.scale, 1),
             scrollX: toFiniteNumber(sceneNode.foreground.scrollX, 0),
             scrollY: toFiniteNumber(sceneNode.foreground.scrollY, 0),
+            enabled: sceneNode.foreground.enabled !== false,
+            startMs: sceneNode.foreground.startMs ?? null,
+            endMs: sceneNode.foreground.endMs ?? null,
           }
         : null,
       particles: sceneNode.particles
@@ -757,6 +769,9 @@ export function createEngine(options = {}) {
             wind: toFiniteNumber(sceneNode.particles.wind, 0),
             opacity: toFiniteNumber(sceneNode.particles.opacity, 0.7),
             color: sceneNode.particles.color ?? null,
+            enabled: sceneNode.particles.enabled !== false,
+            startMs: sceneNode.particles.startMs ?? null,
+            endMs: sceneNode.particles.endMs ?? null,
           }
         : null,
     };

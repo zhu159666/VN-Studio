@@ -864,6 +864,7 @@ test('getRenderState：scene 舞台值含时间轴覆盖（背景/立绘/UI 图/
   assert.equal(sprite.opacity, 1);
   assert.deepEqual(state.stage.uiImages[0], {
     id: 'ui_hp', assetId: 'img_ui', x: 0.12, y: 0.1, scale: 1, zIndex: 5, opacity: 0.9,
+    enabled: true, startMs: null, endMs: null,
   });
   assert.ok(Math.abs(state.stage.textbox.fontSizePx - 34) < 1e-6);
   assert.equal(state.stage.textbox.color, '#ffffff');
