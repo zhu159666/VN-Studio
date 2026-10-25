@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { assetsApi } from '../api';
 import AIAssistantPanel from '../components/AIAssistantPanel';
 import AssetPanel from '../components/AssetPanel';
-import GroupManagerModal from '../components/GroupManagerModal';
 import AudioStudioModal from '../components/AudioStudioModal';
 import InspectorPanel from '../components/InspectorPanel';
 import SettingsModal from '../components/SettingsModal';
@@ -169,7 +168,6 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [sceneEditorNodeId, setSceneEditorNodeId] = useState(null);
   const [globalTimelineOpen, setGlobalTimelineOpen] = useState(false);
-  const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [leftWidth, setLeftWidth] = useState(layout.leftWidth ?? 280);
   const [rightWidth, setRightWidth] = useState(layout.rightWidth ?? 320);
@@ -435,9 +433,6 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
         </div>
         <div className="vn-topbar__right">
           <ThemeToggle compact />
-          <button type="button" className="vn-btn vn-btn--ghost" onClick={() => setGroupManagerOpen(true)} title="素材/节点分组">
-            分组
-          </button>
           <button type="button" className="vn-btn vn-btn--ghost" onClick={() => setAiAssistantOpen(true)} title="AI 助手：调用外部生图服务">
             AI 助手
           </button>
@@ -583,17 +578,27 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
             {activeTab === 'preview' ? (
               <RuntimePreview project={project} projectDir={projectDir} />
             ) : activeTab === 'blueprint' ? (
-              <>
-                <BlueprintEditor
-                  onSelectionChange={handleBlueprintSelection}
-                  onNodeDoubleClick={(nodeId) => setSceneEditorNodeId(nodeId)}
+              sceneEditorNodeId ? (
+                <SceneStageEditor
+                  nodeId={sceneEditorNodeId}
+                  onClose={() => setSceneEditorNodeId(null)}
                 />
-                <SceneMiniPreview
-                  project={project}
-                  projectDir={projectDir}
-                  sceneNode={selectedNode?.type === 'scene' ? selectedNode : null}
-                />
-              </>
+              ) : (
+                <>
+                  <BlueprintEditor
+                    onSelectionChange={handleBlueprintSelection}
+                    onNodeDoubleClick={(nodeId) => {
+                      setSelectedNodeId(nodeId);
+                      setSceneEditorNodeId(nodeId);
+                    }}
+                  />
+                  <SceneMiniPreview
+                    project={project}
+                    projectDir={projectDir}
+                    sceneNode={selectedNode?.type === 'scene' ? selectedNode : null}
+                  />
+                </>
+              )
             ) : (
               renderEditor()
             )}
@@ -693,10 +698,6 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
         />
       ) : null}
 
-      {sceneEditorNodeId ? (
-        <SceneStageEditor nodeId={sceneEditorNodeId} onClose={() => setSceneEditorNodeId(null)} />
-      ) : null}
-
       {globalTimelineOpen ? (
         <GlobalFlowTimeline
           project={project}
@@ -708,14 +709,6 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
             setActiveTab('blueprint');
             actions.updateEditor({ selectedNodeId: id });
           }}
-        />
-      ) : null}
-
-      {groupManagerOpen ? (
-        <GroupManagerModal
-          selectedAssetId={selectedAssetId}
-          selectedNodeId={selectedNodeId}
-          onClose={() => setGroupManagerOpen(false)}
         />
       ) : null}
     </div>

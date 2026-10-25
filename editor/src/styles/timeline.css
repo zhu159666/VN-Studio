@@ -459,3 +459,38 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.vn-tl-dialogue-track {
+  position: relative;
+  min-height: 30px;
+  background: rgba(90, 169, 255, 0.04);
+}
+
+.vn-tl-dialogue {
+  position: absolute;
+  top: 4px;
+  height: 22px;
+  padding: 0 5px;
+  overflow: hidden;
+  border: 1px solid #2f5d82;
+  border-radius: 4px;
+  background: #162c3d;
+  color: #b9dcff;
+  font-size: 9px;
+  line-height: 20px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.vn-tl-dialogue:hover {
+  border-color: #5aa9ff;
+  background: #1d3a52;
+}
+
+.vn-tl-dialogue.is-branch {
+  border-color: #8b6b32;
+  background: #2e2616;
+  color: #ffd98a;
+}

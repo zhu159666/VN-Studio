@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useProjectController } from '../../state/ProjectContext';
@@ -41,6 +41,28 @@ const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4];
 
 function pxPerMsFor(zoom) {
   return (BASE_PX_PER_SECOND * zoom) / 1000;
+}
+
+function estimateDialogueTiming(sceneNode) {
+  const entries = Array.isArray(sceneNode?.dialogues) ? sceneNode.dialogues : [];
+  const speed = 30;
+  let cursor = 0;
+  const markers = [];
+  for (const entry of entries) {
+    if (entry.type === 'branch') {
+      markers.push({ time: cursor, duration: 600, label: entry.prompt || '分支', branch: true });
+      cursor += 600;
+      break;
+    }
+    const duration = Math.max(700, Math.round(String(entry.text || '').length / speed * 1000) + 300);
+    markers.push({
+      time: cursor,
+      duration,
+      label: entry.speaker ? `${entry.speaker}：${entry.text || ''}` : String(entry.text || ''),
+    });
+    cursor += duration;
+  }
+  return { markers, total: Math.max(5000, cursor + 400) };
 }
 
 function tickInterval(zoom) {
@@ -201,6 +223,18 @@ export default function TimelineEditor({ project, sceneNode }) {
   const timeline = sceneNode ? project.timelines?.[sceneId] ?? null : null;
   const timelineRef = useRef(timeline);
   timelineRef.current = timeline;
+  const autoTimelineRef = useRef(new Set());
+  const dialogueTiming = useMemo(() => estimateDialogueTiming(sceneNode), [sceneNode]);
+
+  useEffect(() => {
+    if (!sceneNode || timeline) return;
+    if (autoTimelineRef.current.has(sceneNode.id)) return;
+    autoTimelineRef.current.add(sceneNode.id);
+    actions.setTimeline(
+      sceneNode.id,
+      createTimeline(sceneNode.id, dialogueTiming.total),
+    );
+  }, [actions, dialogueTiming.total, sceneNode, timeline]);
 
   const rootRef = useRef(null);
   const contentRef = useRef(null);
@@ -811,6 +845,32 @@ export default function TimelineEditor({ project, sceneNode }) {
               ))}
             </div>
           </div>
+
+          {dialogueTiming.markers.length > 0 ? (
+            <div className="vn-tl-row">
+              <div className="vn-tl-label">
+                <span className="vn-tl-label__name">说话轨</span>
+                <span className="vn-tl-label__meta">{dialogueTiming.markers.length} 条对白 · 自动</span>
+              </div>
+              <div className="vn-tl-track vn-tl-dialogue-track" style={{ width: `${totalWidth}px` }}>
+                {dialogueTiming.markers.map((marker, index) => (
+                  <button
+                    key={`${marker.time}-${index}`}
+                    type="button"
+                    className={`vn-tl-dialogue${marker.branch ? ' is-branch' : ''}`}
+                    style={{
+                      left: `${marker.time * pxPerMs}px`,
+                      width: `${Math.max(18, marker.duration * pxPerMs)}px`,
+                    }}
+                    title={`${formatTime(marker.time)} · ${marker.label}`}
+                    onClick={() => setPlayhead(marker.time)}
+                  >
+                    {marker.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {timeline.tracks.length === 0 ? (
             <div className="vn-tl-row">

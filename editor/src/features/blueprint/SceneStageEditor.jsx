@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { assetsApi } from '../../api';
 import { useProjectController } from '../../state/ProjectContext';
-import SceneInspector from '../../components/inspectors/SceneInspector';
 import '../../styles/scene-stage-editor.css';
 
 function clamp(value, min, max) {
@@ -10,7 +9,7 @@ function clamp(value, min, max) {
 }
 
 export default function SceneStageEditor({ nodeId, onClose }) {
-  const { project, projectDir, actions, notify } = useProjectController();
+  const { project, projectDir, actions } = useProjectController();
   const node = project.nodes.find((item) => item.id === nodeId) || null;
   const [urls, setUrls] = useState({});
   const [selected, setSelected] = useState({ kind: 'background', id: 'background' });
@@ -137,9 +136,9 @@ export default function SceneStageEditor({ nodeId, onClose }) {
       <div className="vn-stage-editor__head">
         <div>
           <strong>{node.name}</strong>
-          <span>场景编辑 · 拖动立绘/UI 直接改位置</span>
+          <span>Unity 式场景画布 · 拖动立绘/UI 直接改位置</span>
         </div>
-        <button type="button" className="vn-btn" onClick={onClose}>关闭场景编辑</button>
+        <button type="button" className="vn-btn" onClick={onClose}>返回蓝图</button>
       </div>
 
       <div className="vn-stage-editor__body">
@@ -275,12 +274,7 @@ export default function SceneStageEditor({ nodeId, onClose }) {
             <div className="vn-stage-editor__notice">粒子层参数在左侧 B4 · 粒子层 编辑。</div>
           ) : null}
         </div>
-
-        <aside className="vn-stage-editor__inspector">
-          <SceneInspector project={project} projectDir={projectDir} node={node} />
-        </aside>
       </div>
-      {notify ? null : null}
     </div>
   );
 }

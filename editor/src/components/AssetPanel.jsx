@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { assetDataUrl } from '../api.js';
+import { useProjectController } from '../state/ProjectContext';
 import LeftBottomPanels from './LeftBottomPanels.jsx';
 import '../styles/assets.css';
 
@@ -271,10 +272,13 @@ export default function AssetPanel({
   onVariablesChange,
   onSelectAssetById,
 }) {
+  const { actions } = useProjectController();
   const [menuOpen, setMenuOpen] = useState(false);
   const [importing, setImporting] = useState('');
   const [removingId, setRemovingId] = useState('');
   const [groupFilter, setGroupFilter] = useState('all');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [folderName, setFolderName] = useState('');
   const menuRef = useRef(null);
 
   // project.assets 四个数组扁平化，保留 asset 引用
@@ -309,6 +313,30 @@ export default function AssetPanel({
   );
   const activeGroup = assetGroups.find((group) => group.id === groupFilter) ?? null;
   const groupItemIds = useMemo(() => new Set(activeGroup?.itemIds ?? []), [activeGroup]);
+  const allGroups = Array.isArray(project?.editor?.groups) ? project.editor.groups : [];
+  const writeGroups = (next) => actions.updateEditor({ groups: next });
+  const createFolder = () => {
+    const name = folderName.trim();
+    if (!name) return;
+    const id = `folder_${Date.now().toString(36)}`;
+    writeGroups([...allGroups, { id, name, kind: 'asset', itemIds: [] }]);
+    setGroupFilter(id);
+    setFolderName('');
+    setCreatingFolder(false);
+  };
+  const addSelectedToFolder = () => {
+    if (!activeGroup || !selectedAssetId) return;
+    if (activeGroup.itemIds.includes(selectedAssetId)) {
+      safeNotify?.('该素材已在此文件夹', 'warn');
+      return;
+    }
+    writeGroups(allGroups.map((group) => (
+      group.id === activeGroup.id
+        ? { ...group, itemIds: [...group.itemIds, selectedAssetId] }
+        : group
+    )));
+    safeNotify?.('已加入当前文件夹', 'success');
+  };
 
   const visibleItems = useMemo(() => {
     const needle = String(query ?? '').trim().toLowerCase();
@@ -640,19 +668,48 @@ export default function AssetPanel({
         )}
       </div>
 
-      {assetGroups.length > 0 ? (
-        <div className="vn-asset-group-filter">
-          <span>分组</span>
-          <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} aria-label="按分组筛选素材">
-            <option value="all">全部分组</option>
-            {assetGroups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}（{group.itemIds.length}）
-              </option>
-            ))}
-          </select>
+      <div className="vn-asset-folders">
+        <div className="vn-asset-folders__head">
+          <span>素材文件夹</span>
+          <button type="button" className="vn-asset-folders__add" onClick={() => setCreatingFolder((value) => !value)}>
+            + 新建文件夹
+          </button>
         </div>
-      ) : null}
+        {creatingFolder ? (
+          <div className="vn-asset-folders__create">
+            <input
+              autoFocus
+              value={folderName}
+              placeholder="文件夹名称"
+              onChange={(event) => setFolderName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') createFolder();
+                if (event.key === 'Escape') setCreatingFolder(false);
+              }}
+            />
+            <button type="button" className="vn-btn" onClick={createFolder}>确定</button>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className={`vn-asset-folder${groupFilter === 'all' ? ' is-active' : ''}`}
+          onClick={() => setGroupFilter('all')}
+        >
+          <span>全部素材</span>
+          <small>{allItems.length}</small>
+        </button>
+        {assetGroups.map((group) => (
+          <button
+            key={group.id}
+            type="button"
+            className={`vn-asset-folder${groupFilter === group.id ? ' is-active' : ''}`}
+            onClick={() => setGroupFilter(group.id)}
+          >
+            <span>📁 {group.name}</span>
+            <small>{group.itemIds.length}</small>
+          </button>
+        ))}
+      </div>
 
       <div className="vn-asset-tabs" role="tablist" aria-label="素材类型筛选">
         {FILTER_TABS.map((tab) => (
@@ -675,6 +732,15 @@ export default function AssetPanel({
         <span className="vn-asset-toolbar__stats">
           显示 {visibleItems.length} / {allItems.length}
         </span>
+        <button
+          type="button"
+          className="vn-btn vn-btn--ghost vn-asset-add-folder"
+          disabled={!activeGroup || !selectedAssetId}
+          onClick={addSelectedToFolder}
+          title={activeGroup ? `把当前选中素材加入「${activeGroup.name}」` : '先在上方选择一个文件夹'}
+        >
+          加入文件夹
+        </button>
         <div className="vn-asset-view" role="group" aria-label="视图切换">
           <button
             type="button"
