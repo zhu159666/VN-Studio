@@ -274,6 +274,7 @@ export default function AssetPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const [importing, setImporting] = useState('');
   const [removingId, setRemovingId] = useState('');
+  const [groupFilter, setGroupFilter] = useState('all');
   const menuRef = useRef(null);
 
   // project.assets 四个数组扁平化，保留 asset 引用
@@ -302,17 +303,24 @@ export default function AssetPanel({
 
   const activeFilter = FILTER_TABS.some((tab) => tab.key === filter) ? filter : 'all';
   const activeView = view === 'list' ? 'list' : 'grid';
+  const assetGroups = useMemo(
+    () => (Array.isArray(project?.editor?.groups) ? project.editor.groups : []).filter((group) => group.kind === 'asset'),
+    [project?.editor?.groups],
+  );
+  const activeGroup = assetGroups.find((group) => group.id === groupFilter) ?? null;
+  const groupItemIds = useMemo(() => new Set(activeGroup?.itemIds ?? []), [activeGroup]);
 
   const visibleItems = useMemo(() => {
     const needle = String(query ?? '').trim().toLowerCase();
     return allItems.filter((item) => {
       if (activeFilter !== 'all' && item.kind !== activeFilter) return false;
+      if (activeGroup && !groupItemIds.has(item.asset?.id)) return false;
       if (!needle) return true;
       const name = String(item.asset?.name || '').toLowerCase();
       const id = String(item.asset?.id || '').toLowerCase();
       return name.includes(needle) || id.includes(needle);
     });
-  }, [allItems, activeFilter, query]);
+  }, [allItems, activeFilter, activeGroup, groupItemIds, query]);
 
   // 导入菜单：点击外部 / Esc 关闭
   useEffect(() => {
@@ -631,6 +639,20 @@ export default function AssetPanel({
           </button>
         )}
       </div>
+
+      {assetGroups.length > 0 ? (
+        <div className="vn-asset-group-filter">
+          <span>分组</span>
+          <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} aria-label="按分组筛选素材">
+            <option value="all">全部分组</option>
+            {assetGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}（{group.itemIds.length}）
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       <div className="vn-asset-tabs" role="tablist" aria-label="素材类型筛选">
         {FILTER_TABS.map((tab) => (

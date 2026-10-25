@@ -4,8 +4,8 @@
   z-index: 85;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px 22px;
+  gap: 10px;
+  padding: 16px 20px;
   background: #0b1015;
   color: #e7edf3;
 }
@@ -15,7 +15,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 10px;
+  padding-bottom: 9px;
   border-bottom: 1px solid #27313b;
 }
 
@@ -56,33 +56,79 @@
 .vn-global-timeline__legend i.is-minigame { background: #ffc857; }
 
 .vn-global-timeline__scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 6px;
-}
-
-.vn-global-timeline__track {
-  display: flex;
-  gap: 4px;
-  min-width: 100%;
-  height: 220px;
-  padding: 10px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
   border: 1px solid #27313b;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #11171d;
 }
 
-.vn-global-block {
+.vn-global-timeline__canvas {
   position: relative;
+  min-height: 100%;
+  padding: 8px 0 10px;
+}
+
+.vn-global-ruler {
+  position: relative;
+  height: 24px;
+  margin-left: 0;
+  border-bottom: 1px solid #27313b;
+}
+
+.vn-global-ruler__tick {
+  position: absolute;
+  top: 4px;
+  padding-left: 4px;
+  border-left: 1px solid #33414d;
+  color: #738494;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.vn-global-track {
+  display: flex;
+  align-items: stretch;
+  min-height: 62px;
+  border-bottom: 1px solid #1e2831;
+}
+
+.vn-global-track__label {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  flex: 0 0 92px;
+  border-right: 1px solid #27313b;
+  background: #0f161c;
+  color: #90a3b4;
+  font-size: 11px;
+}
+
+.vn-global-track__lane {
+  position: relative;
+  min-height: 62px;
+  background-image: linear-gradient(to right, rgba(90, 169, 255, 0.06) 1px, transparent 1px);
+  background-size: 50px 100%;
+}
+
+.vn-global-block {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-end;
-  min-width: 54px;
-  padding: 8px;
+  min-width: 8px;
+  padding: 5px 6px;
   overflow: hidden;
   border: 1px solid #31404d;
-  border-radius: 6px;
+  border-radius: 5px;
   background: #1b2a38;
   color: #e7edf3;
   text-align: left;
@@ -98,37 +144,80 @@
 .vn-global-block--minigame { background: #3a3020; border-color: #8b6b32; }
 .vn-global-block.is-excluded { opacity: 0.65; }
 
-.vn-global-block__index {
-  position: absolute;
-  top: 5px;
-  left: 7px;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 10px;
-}
-
 .vn-global-block__name {
-  display: -webkit-box;
+  display: block;
+  width: 100%;
   overflow: hidden;
-  font-size: 11px;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  font-size: 10px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vn-global-block__meta {
-  margin-top: 4px;
   color: #91a4b5;
-  font-size: 10px;
+  font-size: 9px;
 }
 
-.vn-global-timeline__ruler {
+.vn-global-timeline__branches {
+  max-height: 210px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid #27313b;
+  border-radius: 8px;
+  background: #10161c;
+}
+
+.vn-global-timeline__branches-title {
+  margin-bottom: 7px;
+  color: #8fa0af;
+  font-size: 11px;
+}
+
+.vn-global-branch {
   display: flex;
-  gap: 4px;
-  color: #728392;
-  font-size: 10px;
-  text-align: center;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #1e2831;
 }
 
-.vn-global-timeline__ruler span {
-  min-width: 54px;
+.vn-global-branch__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 320px;
+}
+
+.vn-global-branch__time {
+  color: #5aa9ff;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.vn-global-branch__head strong {
+  font-size: 12px;
+}
+
+.vn-global-branch__head small {
+  color: #7f909f;
+  font-size: 10px;
+}
+
+.vn-global-branch__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.vn-global-branch__options .vn-btn.is-active {
+  border-color: #5aa9ff;
+  background: #1e3a55;
+  color: #d9ebff;
+}
+
+.vn-global-timeline__empty {
+  color: #7f909f;
+  font-size: 12px;
 }

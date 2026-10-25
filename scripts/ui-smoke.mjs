@@ -605,6 +605,9 @@ async function main() {
     if ((await editorPage.locator('.vn-global-timeline').count()) === 0) {
       throw new Error('全局流程时间轴没有打开');
     }
+    if ((await editorPage.locator('.vn-global-track').count()) < 3) {
+      throw new Error('全局流程时间轴缺少多轨道');
+    }
     await capture(editorPage, 'chromium-global-flow.png');
     await editorPage.getByRole('button', { name: '关闭' }).last().click();
     await editorPage.waitForTimeout(300);
@@ -622,6 +625,9 @@ async function main() {
     await capture(editorPage, 'chromium-groups.png');
     await editorPage.locator('.vn-group-manager').getByRole('button', { name: '关闭' }).click();
     await editorPage.waitForTimeout(300);
+    if ((await editorPage.locator('.vn-asset-group-filter').count()) === 0) {
+      throw new Error('素材分组筛选没有出现');
+    }
     if ((await editorPage.getByText('B4 · 粒子层').count()) === 0) {
       throw new Error('场景属性面板缺少原生粒子层');
     }
