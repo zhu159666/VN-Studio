@@ -248,6 +248,7 @@ export default function TimelineEditor({ project, sceneNode }) {
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [selected, setSelected] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuKind, setMenuKind] = useState('track');
   const [menuPos, setMenuPos] = useState(null);
   const [dragPreview, setDragPreview] = useState(null);
   const [durationDraft, setDurationDraft] = useState(String(timeline?.durationMs ?? DEFAULT_TIMELINE_DURATION));
@@ -449,6 +450,48 @@ export default function TimelineEditor({ project, sceneNode }) {
     setPlayhead(0);
     setMenuOpen(false);
     notify('已添加轨道', 'success');
+  };
+
+  const addQuickKeyframe = (candidate) => {
+    if (!timeline || !sceneNode) return;
+    const draft = createTrackDraft({
+      sceneNode,
+      timeline,
+      kind: candidate.kind,
+      target: candidate.target,
+      property: candidate.property,
+    });
+    if (draft.error) {
+      notify(draft.error, 'error');
+      return;
+    }
+    const time = clamp(Math.round(playhead), 0, durationMs);
+    const value = evaluateTrack(draft.track, time);
+    const trackWithKey = addKeyframeToTrack(draft.track, time, value, intensityToBezier('linear', 0));
+    commitTimeline({ ...timeline, tracks: [...timeline.tracks, trackWithKey] });
+    setSelected({ trackId: draft.track.id, time });
+    setMenuOpen(false);
+    notify(`已在 ${formatTime(time)} 插入关键帧`, 'success');
+  };
+
+  const addKeyframeForCandidate = (candidate) => {
+    if (!timeline) return;
+    const existing = timeline.tracks.find((track) =>
+      track.kind === candidate.kind
+      && (track.target ?? null) === (candidate.target ?? null)
+      && track.property === candidate.property,
+    );
+    if (existing) {
+      const time = clamp(Math.round(playhead), 0, durationMs);
+      const value = evaluateTrack(existing, time);
+      const nextTrack = addKeyframeToTrack(existing, time, value, intensityToBezier('linear', 0));
+      commitTrack(nextTrack);
+      setSelected({ trackId: existing.id, time });
+      setMenuOpen(false);
+      notify(`已在 ${formatTime(time)} 插入关键帧`, 'success');
+      return;
+    }
+    addQuickKeyframe(candidate);
   };
 
   const removeTrack = (track) => {
@@ -766,8 +809,26 @@ export default function TimelineEditor({ project, sceneNode }) {
             </button>
           </span>
           <div className="vn-tl-add" ref={addMenuRef}>
-            <button type="button" className="vn-btn" onClick={() => setMenuOpen((open) => !open)}>
+            <button
+              type="button"
+              className="vn-btn"
+              onClick={() => {
+                setMenuKind('track');
+                setMenuOpen((open) => !open);
+              }}
+            >
               + 轨道
+            </button>
+            <button
+              type="button"
+              className="vn-btn"
+              onClick={() => {
+                setMenuKind('keyframe');
+                setMenuOpen((open) => !open);
+              }}
+              title="选择属性，在播放头直接插入关键帧"
+            >
+              + 关键帧
             </button>
           </div>
           <button type="button" className="vn-btn vn-btn--danger" onClick={removeTimeline}>
@@ -781,7 +842,7 @@ export default function TimelineEditor({ project, sceneNode }) {
             <div
               className="vn-tl-menu vn-tl-menu--floating"
               role="menu"
-              aria-label="添加轨道"
+              aria-label={menuKind === 'keyframe' ? '插入关键帧' : '添加轨道'}
               ref={menuRef}
               style={{
                 position: 'fixed',
@@ -791,6 +852,9 @@ export default function TimelineEditor({ project, sceneNode }) {
                 maxHeight: menuPos.maxHeight,
               }}
             >
+              <div className="vn-tl-menu__heading">
+                {menuKind === 'keyframe' ? `在 ${formatTime(playhead)} 插入关键帧` : '添加轨道'}
+              </div>
               {grouped.map((group) => (
                 <div key={group.kind} className="vn-tl-menu__group">
                   <div className="vn-tl-menu__title">
@@ -798,7 +862,7 @@ export default function TimelineEditor({ project, sceneNode }) {
                     {group.items.length === 0 ? <span className="vn-tl-menu__empty">（无可用目标）</span> : null}
                   </div>
                   {group.items.map((candidate) => {
-                    const disabled = hasTrackFor(
+                    const disabled = menuKind === 'track' && hasTrackFor(
                       timeline,
                       candidate.kind,
                       candidate.target,
@@ -810,7 +874,9 @@ export default function TimelineEditor({ project, sceneNode }) {
                         type="button"
                         className="vn-tl-menu__item"
                         disabled={disabled}
-                        onClick={() => addTrack(candidate)}
+                        onClick={() => (
+                          menuKind === 'keyframe' ? addKeyframeForCandidate(candidate) : addTrack(candidate)
+                        )}
                         title={disabled ? '该属性已有轨道' : '添加轨道'}
                       >
                         {candidateLabel(project, sceneNode, {

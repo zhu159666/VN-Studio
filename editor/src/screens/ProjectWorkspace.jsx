@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { assetsApi } from '../api';
 import AIAssistantPanel from '../components/AIAssistantPanel';
@@ -164,6 +164,7 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
       : null,
   );
   const [activeTab, setActiveTab] = useState('blueprint');
+  const [previewMode, setPreviewMode] = useState('global');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [sceneEditorNodeId, setSceneEditorNodeId] = useState(null);
@@ -195,6 +196,21 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
     setAssetLivePreview('');
   }, [selectedAssetId, activeTab]);
   const selectedNode = project.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const sceneDemoProject = useMemo(() => {
+    if (!selectedNode || selectedNode.type !== 'scene') return null;
+    const clone = JSON.parse(JSON.stringify(project));
+    const scene = clone.nodes.find((node) => node.id === selectedNode.id);
+    if (!scene) return null;
+    scene.dialogues = (scene.dialogues || []).filter((entry) => entry.type !== 'branch');
+    clone.nodes = [scene];
+    clone.edges = [];
+    clone.settings = {
+      ...(clone.settings || {}),
+      startNodeId: scene.id,
+      autoSave: { ...(clone.settings?.autoSave || {}), enabled: false, onSceneEnter: false },
+    };
+    return clone;
+  }, [project, selectedNode]);
   const selectedEdge = project.edges.find((edge) => edge.id === selectedEdgeId) ?? null;
 
   // 打开新项目时重置布局尺寸（layout 属于项目文件）。
@@ -547,7 +563,6 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
               className={`vn-tab${activeTab === 'preview' ? ' is-active' : ''}`}
               onClick={() => {
                 setActiveTab('preview');
-                setSelectedNodeId(null);
                 setSelectedEdgeId(null);
                 setSelectedAssetId(null);
               }}
@@ -576,7 +591,42 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
           </nav>
           <div className="vn-workspace__canvas">
             {activeTab === 'preview' ? (
-              <RuntimePreview project={project} projectDir={projectDir} />
+              <div className="vn-preview-wrap">
+                <div className="vn-preview-modes">
+                  <button
+                    type="button"
+                    className={`vn-btn vn-btn--ghost${previewMode === 'global' ? ' is-active' : ''}`}
+                    onClick={() => setPreviewMode('global')}
+                  >
+                    全局演示
+                  </button>
+                  <button
+                    type="button"
+                    className={`vn-btn vn-btn--ghost${previewMode === 'scene' ? ' is-active' : ''}`}
+                    onClick={() => setPreviewMode('scene')}
+                    disabled={!sceneDemoProject}
+                    title={sceneDemoProject ? '只演示当前选中场景' : '先在蓝图选中一个普通节点'}
+                  >
+                    单场景演示
+                  </button>
+                  <span>
+                    {previewMode === 'scene'
+                      ? sceneDemoProject
+                        ? `当前场景：${selectedNode?.name}`
+                        : '未选中场景'
+                      : '从起始节点开始完整演示'}
+                  </span>
+                </div>
+                {previewMode === 'scene' && !sceneDemoProject ? (
+                  <div className="vn-preview-empty">请先在蓝图里选中一个普通节点，再切到单场景演示。</div>
+                ) : (
+                  <RuntimePreview
+                    project={previewMode === 'scene' ? sceneDemoProject : project}
+                    projectDir={projectDir}
+                    disableSave={previewMode === 'scene'}
+                  />
+                )}
+              </div>
             ) : activeTab === 'blueprint' ? (
               sceneEditorNodeId ? (
                 <SceneStageEditor

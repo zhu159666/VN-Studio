@@ -812,6 +812,7 @@ export function createEngine(options = {}) {
             speedCps,
             autoAdvanceMs: normalEntry.autoAdvanceMs ?? null,
             animation: normalEntry.animation ?? 'none',
+            textEffect: normalEntry.textEffect ?? 'none',
             sfx: Array.isArray(normalEntry.sfx) ? normalEntry.sfx : [],
           };
         } else if (pendingType === 'normal-choice' && normalEntry) {

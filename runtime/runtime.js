@@ -761,8 +761,10 @@ export function createRuntime(options = {}) {
     const items = [...sprites, ...uiImages];
     if (items.length === 0) return;
     items.sort((a, b) => asNumber(a?.zIndex, 0) - asNumber(b?.zIndex, 0));
+    const portraitAssetId = state?.dialogue?.portrait?.assetId ?? null;
     for (const item of items) {
       if (!item || !item.assetId || !layerVisible(item, state)) continue;
+      if (portraitAssetId && item.assetId === portraitAssetId) continue;
       const entry = ensureImage(item.assetId);
       if (!entry) continue;
       const opacity = clamp01(item.opacity, 1);
@@ -945,12 +947,27 @@ export function createRuntime(options = {}) {
     context.fillStyle = color;
     context.textAlign = 'left';
     context.textBaseline = 'top';
+    const textEffect = dialogue?.textEffect ?? 'none';
+    const effectTime = performance.now() / 1000;
     const lines = wrapText(visibleText, contentWidth, fontSize);
     const startY = top + padding;
     for (let index = 0; index < lines.length; index += 1) {
       const lineY = startY + index * lineHeight;
       if (lineY > top + height) break;
-      context.fillText(lines[index], left + padding, lineY);
+      let drawX = left + padding;
+      let drawY = lineY;
+      if (textEffect === 'shake') {
+        drawX += Math.sin(effectTime * 42 + index * 1.7) * 2.2;
+        drawY += Math.cos(effectTime * 37 + index * 2.1) * 1.8;
+      } else if (textEffect === 'wave') {
+        drawY += Math.sin(effectTime * 5 + index * 0.8) * 4;
+      } else if (textEffect === 'pulse') {
+        const pulseSize = Math.max(8, fontSize * (1 + Math.sin(effectTime * 5 + index) * 0.03));
+        context.font = `${pulseSize}px ${FONT_STACK}`;
+      } else if (textEffect === 'rainbow') {
+        context.fillStyle = `hsl(${(effectTime * 90 + index * 45) % 360}, 82%, 72%)`;
+      }
+      context.fillText(lines[index], drawX, drawY);
     }
     context.restore();
 

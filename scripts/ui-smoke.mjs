@@ -542,6 +542,12 @@ async function main() {
     await capture(editorPage, 'chromium-asset-editor-view.png');
     await editorPage.getByRole('button', { name: '演示' }).click();
     await editorPage.waitForTimeout(800);
+    if ((await editorPage.getByRole('button', { name: '全局演示' }).count()) === 0) {
+      throw new Error('演示缺少全局演示模式');
+    }
+    if ((await editorPage.getByRole('button', { name: '单场景演示' }).count()) === 0) {
+      throw new Error('演示缺少单场景演示模式');
+    }
     if ((await editorPage.locator('.vn-workspace__timeline').count()) === 0) {
       throw new Error('演示界面不应隐藏时间轴');
     }
@@ -701,6 +707,18 @@ async function main() {
     await editorPage.getByRole('button', { name: '分割', exact: true }).click();
     await editorPage.waitForTimeout(400);
     await capture(editorPage, 'chromium-timeline-split.png');
+
+    await editorPage.getByRole('button', { name: '+ 关键帧' }).click();
+    await editorPage.waitForSelector('.vn-tl-menu');
+    if (!(await editorPage.locator('.vn-tl-menu__heading').innerText()).includes('插入关键帧')) {
+      throw new Error('关键帧菜单标题不正确');
+    }
+    await editorPage.locator('.vn-tl-menu__item').first().click();
+    await editorPage.waitForTimeout(700);
+    if ((await editorPage.locator('.vn-tl-key.is-selected').count()) === 0) {
+      throw new Error('快捷插入关键帧后没有选中关键帧');
+    }
+    await capture(editorPage, 'chromium-timeline-quick-key.png');
 
     await editorPage.getByRole('button', { name: '+ 轨道' }).click();
     await editorPage.waitForSelector('.vn-tl-menu');

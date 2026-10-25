@@ -494,3 +494,10 @@
   background: #2e2616;
   color: #ffd98a;
 }
+
+.vn-tl-menu__heading {
+  padding: 6px 10px;
+  border-bottom: 1px solid #2a3540;
+  color: #9fc8ef;
+  font-size: 11px;
+}

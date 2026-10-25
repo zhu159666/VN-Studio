@@ -3196,6 +3196,16 @@
               "type": "null"
             }
           ]
+        },
+        "textEffect": {
+          "enum": [
+            "none",
+            "shake",
+            "wave",
+            "pulse",
+            "rainbow"
+          ],
+          "description": "台词文字表现模板：抖动/波浪/脉冲/彩色。"
         }
       }
     },

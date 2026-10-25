@@ -703,8 +703,11 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
           updateNode={updateNode}
           actions={actions}
           notify={notify}
-          title="B · 立绘"
+          title="B · 场景常驻立绘"
         />
+        <Hint kind="info">
+          B 用于场景里一直存在的角色/物件，不会随台词消失；台词期间的角色立绘请在 C0 的「台词立绘」里配置。
+        </Hint>
 
         {/* B2. UI 图片层（可选） */}
         <SpriteSection
@@ -961,6 +964,18 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
                     ]}
                     onChange={(animation) => patchDialogue(index, { animation })}
                   />
+                  <FieldSelect
+                    label="文字表现模板 textEffect"
+                    value={entry.textEffect ?? 'none'}
+                    options={[
+                      ['none', '正常'],
+                      ['shake', '抖动'],
+                      ['wave', '波浪'],
+                      ['pulse', '脉冲'],
+                      ['rainbow', '彩色'],
+                    ]}
+                    onChange={(textEffect) => patchDialogue(index, { textEffect })}
+                  />
                   <FieldNumber
                     label="自动前进 autoAdvanceMs（0=手动）"
                     value={entry.autoAdvanceMs ?? 0}
@@ -973,7 +988,7 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
                   {entry.portrait ? (
                     <>
                       <AssetSelect
-                        label="立绘 portrait"
+                        label="台词立绘（覆盖常驻）"
                         assets={spriteAssets}
                         value={entry.portrait.assetId}
                         onChange={(assetId) => {

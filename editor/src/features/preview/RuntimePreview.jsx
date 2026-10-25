@@ -9,7 +9,7 @@ import '../../styles/runtime-preview.css';
  * 编辑器「演示」Tab：内嵌纯浏览器运行时。
  * 资源通过主进程 vnasset:// 协议提供；运行时本身不依赖 Electron。
  */
-export default function RuntimePreview({ project, projectDir }) {
+export default function RuntimePreview({ project, projectDir, disableSave = false }) {
   const stageRef = useRef(null);
   const runtimeRef = useRef(null);
   const [error, setError] = useState('');
@@ -42,7 +42,7 @@ export default function RuntimePreview({ project, projectDir }) {
 
     try {
       // Electron 编辑器内使用项目 saves/ 目录的 JSON 存档；独立运行时默认 IndexedDB。
-      const storage = {
+      const storage = disableSave ? null : {
         list: async () => {
           const result = await savesApi.list({ projectDir });
           return result.saves ?? [];
@@ -91,7 +91,7 @@ export default function RuntimePreview({ project, projectDir }) {
       runtimeRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.meta?.id, projectDir, materialSignature]);
+  }, [project.meta?.id, project.settings?.startNodeId, projectDir, materialSignature, disableSave]);
 
   const restart = () => {
     try {
