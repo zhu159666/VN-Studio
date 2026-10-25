@@ -690,6 +690,15 @@ async function main() {
       await editorPage.waitForTimeout(700);
     }
     await capture(editorPage, 'chromium-timeline.png');
+    if ((await editorPage.getByRole('button', { name: '分割', exact: true }).count()) === 0) {
+      throw new Error('场景时间轴缺少分割按钮');
+    }
+    if ((await editorPage.getByText('吸附', { exact: true }).count()) === 0) {
+      throw new Error('场景时间轴缺少吸附开关');
+    }
+    await editorPage.getByRole('button', { name: '分割', exact: true }).click();
+    await editorPage.waitForTimeout(400);
+    await capture(editorPage, 'chromium-timeline-split.png');
 
     await editorPage.getByRole('button', { name: '+ 轨道' }).click();
     await editorPage.waitForSelector('.vn-tl-menu');
@@ -768,7 +777,7 @@ async function main() {
     await capture(editorPage, 'chromium-node-menu.png');
 
     // 从菜单创建场景节点
-    await editorPage.locator('.vn-bp-node-menu__item').filter({ hasText: '场景' }).first().click();
+    await editorPage.locator('.vn-bp-node-menu__item').filter({ hasText: '普通节点' }).first().click();
     await editorPage.waitForTimeout(900);
     await capture(editorPage, 'chromium-node-created.png');
 
@@ -851,7 +860,7 @@ async function main() {
         await capture(editorPage, 'chromium-edge-drop-menu.png');
         await editorPage
           .locator('.vn-bp-node-menu__item')
-          .filter({ hasText: '对话' })
+          .filter({ hasText: '普通节点' })
           .first()
           .click();
         await editorPage.waitForTimeout(900);

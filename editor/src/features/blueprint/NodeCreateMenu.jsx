@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { NODE_TYPE_META, NODE_TYPE_ORDER } from './blueprintUtils';
+import { CREATE_NODE_TYPE_ORDER, NODE_TYPE_META } from './blueprintUtils';
 
 export default function NodeCreateMenu({ open, x, y, project, pendingConnection, onPick, onClose }) {
   const ref = useRef(null);
@@ -40,7 +40,7 @@ export default function NodeCreateMenu({ open, x, y, project, pendingConnection,
         <div className="vn-bp-node-menu__hint">将自动连接出口 {pendingConnection.port}</div>
       ) : null}
       <div className="vn-bp-node-menu__grid">
-        {NODE_TYPE_ORDER.map((type) => {
+        {CREATE_NODE_TYPE_ORDER.map((type) => {
           const meta = NODE_TYPE_META[type];
           const disabled = (type === 'video' && !hasVideos) || (type === 'minigame' && !hasMinigames);
           return (

@@ -5,10 +5,10 @@ import { nowId } from '../../state/projectMutations.js';
 
 export const NODE_TYPE_META = {
   dialogue: { label: '对话', short: '话', color: '#5aa9ff' },
-  scene: { label: '场景', short: '景', color: '#7be0c0' },
+  scene: { label: '普通节点', short: '普', color: '#7be0c0' },
   choice: { label: '选项', short: '选', color: '#ffc857' },
   minigame: { label: '小游戏', short: '游', color: '#ff9f7a' },
-  video: { label: '视频', short: '视', color: '#c49bff' },
+  video: { label: '动画/视频', short: '视', color: '#c49bff' },
   jump: { label: '跳转', short: '跳', color: '#9aa8b5' },
   condition: { label: '条件', short: '条', color: '#ffb86b' },
   variable: { label: '变量操作', short: '变', color: '#86d3ff' },
@@ -24,6 +24,9 @@ export const NODE_TYPE_ORDER = [
   'condition',
   'variable',
 ];
+
+// 新工程只暴露普通节点、动画/视频、小游戏；条件/变量作为高级流程节点。
+export const CREATE_NODE_TYPE_ORDER = ['scene', 'video', 'minigame', 'condition', 'variable'];
 
 export const DEFAULT_SCENE_TEXTBOX = {
   x: 0.5,

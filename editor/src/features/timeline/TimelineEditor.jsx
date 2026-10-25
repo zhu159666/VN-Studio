@@ -211,6 +211,7 @@ export default function TimelineEditor({ project, sceneNode }) {
   const [zoom, setZoom] = useState(1);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [snapEnabled, setSnapEnabled] = useState(true);
   const [selected, setSelected] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
@@ -465,8 +466,23 @@ export default function TimelineEditor({ project, sceneNode }) {
     addKeyframeAt(track, playhead);
   };
 
-  const jumpKeyframe = (direction) => {
+  const splitAtPlayhead = () => {
     if (!timeline) return;
+    const track = selectedTrack ?? timeline.tracks[0];
+    if (!track) {
+      notify('请先添加一条轨道', 'warn');
+      return;
+    }
+    const time = clamp(Math.round(playhead), 0, durationMs);
+    if ((track.keys ?? []).some((key) => Math.abs(key.time - time) < 1)) {
+      notify('播放头位置已经有关键帧', 'warn');
+      return;
+    }
+    addKeyframeAt(track, time);
+    notify(`已在 ${formatTime(time)} 分割轨道`, 'success');
+  };
+
+  const jumpKeyframe = (direction) => {    if (!timeline) return;
     const tracks = selectedTrack ? [selectedTrack] : timeline.tracks;
     const times = tracks.flatMap((track) =>
       direction < 0 ? [prevKeyframeTime(track, playhead)] : [nextKeyframeTime(track, playhead)],
@@ -511,7 +527,19 @@ export default function TimelineEditor({ project, sceneNode }) {
     let toTime = key.time;
     setDragPreview({ trackId: track.id, fromTime, toTime });
     const onMove = (moveEvent) => {
-      toTime = clamp(Math.round((moveEvent.clientX - rect.left) / pxPerMs), 0, durationMs);
+      let raw = clamp(Math.round((moveEvent.clientX - rect.left) / pxPerMs), 0, durationMs);
+      if (snapEnabled) {
+        const currentTimeline = timelineRef.current;
+        const snapTargets = (currentTimeline?.tracks ?? []).flatMap((item) =>
+          (item.keys ?? []).map((keyframe) => keyframe.time).filter((time) => Math.abs(time - raw) <= 120),
+        );
+        if (snapTargets.length > 0) {
+          raw = snapTargets.reduce((best, time) => (Math.abs(time - raw) < Math.abs(best - raw) ? time : best));
+        } else {
+          raw = Math.round(raw / 100) * 100;
+        }
+      }
+      toTime = clamp(raw, 0, durationMs);
       setDragPreview({ trackId: track.id, fromTime, toTime });
     };
     const onUp = () => {
@@ -560,6 +588,11 @@ export default function TimelineEditor({ project, sceneNode }) {
     if (event.key.toLowerCase() === 'k') {
       event.preventDefault();
       addAtPlayhead();
+      return;
+    }
+    if (event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      splitAtPlayhead();
       return;
     }
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -643,6 +676,14 @@ export default function TimelineEditor({ project, sceneNode }) {
           >
             {playing ? '暂停' : '播放'}
           </button>
+          <button
+            type="button"
+            className="vn-btn vn-btn--ghost"
+            onClick={splitAtPlayhead}
+            title="在播放头分割当前轨道（S）"
+          >
+            分割
+          </button>
           <span className="vn-tl-time">
             {formatTime(playhead)} / {formatTime(durationMs)}
           </span>
@@ -672,6 +713,14 @@ export default function TimelineEditor({ project, sceneNode }) {
               onChange={(event) => commitTimeline({ ...timeline, loop: event.target.checked })}
             />
             循环
+          </label>
+          <label className="vn-tl-inline-check" title="拖动关键帧吸附到 0.1 秒网格和已有帧">
+            <input
+              type="checkbox"
+              checked={snapEnabled}
+              onChange={(event) => setSnapEnabled(event.target.checked)}
+            />
+            吸附
           </label>
           <span className="vn-tl-zoom">
             <button type="button" className="vn-btn vn-btn--ghost" onClick={() => zoomBy(-1)} title="缩小">
