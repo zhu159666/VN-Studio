@@ -15,9 +15,11 @@ import ImageEditor from '../features/assets/ImageEditor';
 import MinigamePreview from '../features/assets/MinigamePreview';
 import VideoPreview from '../features/assets/VideoPreview';
 import BlueprintEditor from '../features/blueprint/BlueprintEditor';
+import SceneStageEditor from '../features/blueprint/SceneStageEditor';
 import RuntimePreview from '../features/preview/RuntimePreview';
 import AssetScenePreview from '../features/preview/AssetScenePreview';
 import SceneMiniPreview from '../features/preview/SceneMiniPreview';
+import GlobalFlowTimeline from '../features/timeline/GlobalFlowTimeline';
 import TimelineEditor from '../features/timeline/TimelineEditor';
 import { findAsset } from '../state/useProjectController';
 import { useProjectController } from '../state/ProjectContext';
@@ -164,6 +166,8 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
   const [activeTab, setActiveTab] = useState('blueprint');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [sceneEditorNodeId, setSceneEditorNodeId] = useState(null);
+  const [globalTimelineOpen, setGlobalTimelineOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [leftWidth, setLeftWidth] = useState(layout.leftWidth ?? 280);
   const [rightWidth, setRightWidth] = useState(layout.rightWidth ?? 320);
@@ -550,6 +554,13 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
             >
               演示
             </button>
+            <button
+              type="button"
+              className="vn-tab"
+              onClick={() => setGlobalTimelineOpen(true)}
+            >
+              全局流程
+            </button>
             <div className="vn-tabs__spacer" />
             <span className="vn-tabs__current">
               {activeTab === 'preview'
@@ -568,7 +579,10 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
               <RuntimePreview project={project} projectDir={projectDir} />
             ) : activeTab === 'blueprint' ? (
               <>
-                <BlueprintEditor onSelectionChange={handleBlueprintSelection} />
+                <BlueprintEditor
+                  onSelectionChange={handleBlueprintSelection}
+                  onNodeDoubleClick={(nodeId) => setSceneEditorNodeId(nodeId)}
+                />
                 <SceneMiniPreview
                   project={project}
                   projectDir={projectDir}
@@ -617,7 +631,12 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
               <EdgeInspector project={project} edge={selectedEdge} />
             ) : selectedNode ? (
               selectedNode.type === 'scene' ? (
-                <SceneInspector project={project} projectDir={projectDir} node={selectedNode} />
+                <SceneInspector
+                  project={project}
+                  projectDir={projectDir}
+                  node={selectedNode}
+                  onOpenSceneEditor={() => setSceneEditorNodeId(selectedNode.id)}
+                />
               ) : (
                 <NodeInspector project={project} projectDir={projectDir} node={selectedNode} />
               )
@@ -665,6 +684,24 @@ export default function ProjectWorkspace({ initialFilter, focusAssetId, onBack, 
             setSelectedEdgeId(null);
             setActiveTab('asset');
             actions.updateEditor({ selectedAssetId: asset.id });
+          }}
+        />
+      ) : null}
+
+      {sceneEditorNodeId ? (
+        <SceneStageEditor nodeId={sceneEditorNodeId} onClose={() => setSceneEditorNodeId(null)} />
+      ) : null}
+
+      {globalTimelineOpen ? (
+        <GlobalFlowTimeline
+          project={project}
+          onClose={() => setGlobalTimelineOpen(false)}
+          onSelectNode={(id) => {
+            setSelectedNodeId(id);
+            setSelectedEdgeId(null);
+            setSelectedAssetId(null);
+            setActiveTab('blueprint');
+            actions.updateEditor({ selectedNodeId: id });
           }}
         />
       ) : null}

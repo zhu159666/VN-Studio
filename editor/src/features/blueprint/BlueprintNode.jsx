@@ -31,8 +31,14 @@ export default function BlueprintNode({ data, selected }) {
       className={`vn-bp-node vn-bp-node--${node.type}${selected ? ' is-selected' : ''}`}
       style={{ width }}
       data-node-type={node.type}
+      data-node-id={node.id}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onDoubleClick={(event) => {
+        if (!data.onNodeDoubleClick) return;
+        event.stopPropagation();
+        data.onNodeDoubleClick(node.id);
+      }}
       title={`${typeMeta.label}节点 · ${node.id}`}
     >
       <Handle type="target" position={Position.Left} id="in" className="vn-bp-handle vn-bp-handle--target" />

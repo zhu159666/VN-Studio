@@ -1,0 +1,134 @@
+.vn-global-timeline {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 22px;
+  background: #0b1015;
+  color: #e7edf3;
+}
+
+.vn-global-timeline__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #27313b;
+}
+
+.vn-global-timeline__head strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+
+.vn-global-timeline__head span {
+  color: #8fa0af;
+  font-size: 12px;
+}
+
+.vn-global-timeline__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: #9baab8;
+  font-size: 11px;
+}
+
+.vn-global-timeline__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vn-global-timeline__legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: #5aa9ff;
+}
+
+.vn-global-timeline__legend i.is-video { background: #c49bff; }
+.vn-global-timeline__legend i.is-minigame { background: #ffc857; }
+
+.vn-global-timeline__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
+.vn-global-timeline__track {
+  display: flex;
+  gap: 4px;
+  min-width: 100%;
+  height: 220px;
+  padding: 10px;
+  border: 1px solid #27313b;
+  border-radius: 10px;
+  background: #11171d;
+}
+
+.vn-global-block {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  min-width: 54px;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid #31404d;
+  border-radius: 6px;
+  background: #1b2a38;
+  color: #e7edf3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vn-global-block:hover {
+  border-color: #5aa9ff;
+  filter: brightness(1.15);
+}
+
+.vn-global-block--video { background: #2a2140; border-color: #5e4a86; }
+.vn-global-block--minigame { background: #3a3020; border-color: #8b6b32; }
+.vn-global-block.is-excluded { opacity: 0.65; }
+
+.vn-global-block__index {
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+}
+
+.vn-global-block__name {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.vn-global-block__meta {
+  margin-top: 4px;
+  color: #91a4b5;
+  font-size: 10px;
+}
+
+.vn-global-timeline__ruler {
+  display: flex;
+  gap: 4px;
+  color: #728392;
+  font-size: 10px;
+  text-align: center;
+}
+
+.vn-global-timeline__ruler span {
+  min-width: 54px;
+}

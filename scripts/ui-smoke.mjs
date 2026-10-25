@@ -588,6 +588,23 @@ async function main() {
     await sceneNode.click();
     await editorPage.waitForTimeout(800);
     await capture(editorPage, 'chromium-scene-inspector.png');
+    await sceneNode.dblclick({ force: true });
+    await editorPage.waitForTimeout(1000);
+    if ((await editorPage.locator('.vn-stage-editor').count()) === 0) {
+      throw new Error('双击普通节点没有打开场景编辑器');
+    }
+    await capture(editorPage, 'chromium-scene-stage-editor.png');
+    const closeStage = editorPage.getByRole('button', { name: '关闭场景编辑' });
+    if (await closeStage.count()) await closeStage.click();
+    await editorPage.waitForTimeout(300);
+    await editorPage.getByRole('button', { name: '全局流程' }).click();
+    await editorPage.waitForTimeout(500);
+    if ((await editorPage.locator('.vn-global-timeline').count()) === 0) {
+      throw new Error('全局流程时间轴没有打开');
+    }
+    await capture(editorPage, 'chromium-global-flow.png');
+    await editorPage.getByRole('button', { name: '关闭' }).last().click();
+    await editorPage.waitForTimeout(300);
     if ((await editorPage.getByText('B4 · 粒子层').count()) === 0) {
       throw new Error('场景属性面板缺少原生粒子层');
     }

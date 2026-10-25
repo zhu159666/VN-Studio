@@ -294,7 +294,7 @@ function SpriteSection({ node, project, projectDir, kind, assets, updateNode, ac
 // SceneInspector
 // ---------------------------------------------------------------------------
 
-export default function SceneInspector({ project: projectProp, projectDir: projectDirProp, node }) {
+export default function SceneInspector({ project: projectProp, projectDir: projectDirProp, node, onOpenSceneEditor }) {
   const controller = useProjectController();
   const { actions, notify } = controller;
   const project = projectProp ?? controller.project;
@@ -515,6 +515,9 @@ export default function SceneInspector({ project: projectProp, projectDir: proje
           <p className="vn-scene-insp-subtitle vn-mono">{node.id}</p>
         </div>
         <span className="vn-chip vn-scene-insp-kind">scene</span>
+        {onOpenSceneEditor ? (
+          <SmallButton onClick={onOpenSceneEditor}>场景编辑</SmallButton>
+        ) : null}
       </header>
 
       <FieldNotifyProvider key={node.id} notify={notify}>

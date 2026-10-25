@@ -1,0 +1,230 @@
+.vn-stage-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: #0d1218;
+  color: #e7edf3;
+}
+
+.vn-stage-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #27313b;
+  background: #141b22;
+}
+
+.vn-stage-editor__head strong {
+  font-size: 14px;
+  margin-right: 10px;
+}
+
+.vn-stage-editor__head span {
+  color: #8fa0af;
+  font-size: 12px;
+}
+
+.vn-stage-editor__body {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 360px;
+  min-height: 0;
+  flex: 1;
+}
+
+.vn-stage-editor__layers {
+  overflow: auto;
+  padding: 12px;
+  border-right: 1px solid #27313b;
+  background: #11171d;
+}
+
+.vn-stage-editor__layers-title {
+  margin-bottom: 8px;
+  color: #8fa0af;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.vn-stage-layer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 7px 8px;
+  border: 1px solid #2a3540;
+  border-radius: 6px;
+  background: #161e26;
+  color: #dbe5ee;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vn-stage-layer small {
+  color: #7f909f;
+  font-size: 10px;
+}
+
+.vn-stage-layer.is-active,
+.vn-stage-layer:hover {
+  border-color: #5aa9ff;
+  background: #1d2c3a;
+}
+
+.vn-stage-editor__quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #27313b;
+}
+
+.vn-stage-editor__quick label {
+  display: grid;
+  gap: 3px;
+  color: #8fa0af;
+  font-size: 10px;
+}
+
+.vn-stage-editor__quick input {
+  width: 100%;
+  padding: 4px 5px;
+  border: 1px solid #2a3540;
+  border-radius: 4px;
+  background: #0e141a;
+  color: #e7edf3;
+  font-size: 11px;
+}
+
+.vn-stage-editor__stage-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px;
+  background: radial-gradient(circle at 50% 30%, #1b2631, #0b1015 70%);
+}
+
+.vn-stage-editor__stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid #33404c;
+  border-radius: 8px;
+  background: #080b0e;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  touch-action: none;
+}
+
+.vn-stage-layer-img {
+  position: absolute;
+  user-select: none;
+}
+
+.vn-stage-layer-img--background,
+.vn-stage-layer-img--foreground {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.vn-stage-layer-img--foreground {
+  z-index: 30;
+  pointer-events: none;
+}
+
+.vn-stage-layer-img--sprite,
+.vn-stage-layer-img--ui {
+  max-height: 100%;
+  height: 86%;
+  width: auto;
+  object-fit: contain;
+  transform-origin: center center;
+  cursor: grab;
+}
+
+.vn-stage-layer-img--sprite.is-selected,
+.vn-stage-layer-img--ui.is-selected {
+  outline: 2px solid #5aa9ff;
+  outline-offset: 2px;
+}
+
+.vn-stage-layer-img--ui {
+  z-index: 25;
+}
+
+.vn-stage-editor__placeholder,
+.vn-stage-editor__hint,
+.vn-stage-editor__notice {
+  position: absolute;
+  left: 50%;
+  color: #8fa0af;
+  font-size: 12px;
+  transform: translateX(-50%);
+}
+
+.vn-stage-editor__placeholder {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.vn-stage-editor__hint {
+  bottom: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(8, 12, 16, 0.7);
+  white-space: nowrap;
+}
+
+.vn-stage-editor__particle-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 35;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(90, 169, 255, 0.2);
+  color: #a9d1ff;
+  font-size: 10px;
+}
+
+.vn-stage-editor__notice {
+  margin-top: 8px;
+  transform: none;
+  left: auto;
+  text-align: center;
+}
+
+.vn-stage-editor__inspector {
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid #27313b;
+  background: #11171d;
+}
+
+.vn-stage-editor__empty {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  color: #8fa0af;
+}
+
+@media (max-width: 1100px) {
+  .vn-stage-editor__body {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+
+  .vn-stage-editor__inspector {
+    display: none;
+  }
+}

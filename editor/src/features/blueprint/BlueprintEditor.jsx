@@ -49,7 +49,7 @@ function clampMenuPosition(x, y) {
   return { x: Math.max(12, x), y: Math.max(12, y) };
 }
 
-function InnerBlueprint({ onSelectionChange }) {
+function InnerBlueprint({ onSelectionChange, onNodeDoubleClick }) {
   const controller = useProjectController();
   const { project, actions, notify } = controller;
   const { fitView, screenToFlowPosition } = useReactFlow();
@@ -78,9 +78,10 @@ function InnerBlueprint({ onSelectionChange }) {
       data: {
         ...flowNode.data,
         onAssetDrop: (nodeId, payload) => nodeDropRef.current?.(nodeId, payload),
+        onNodeDoubleClick: (nodeId) => onNodeDoubleClick?.(nodeId),
       },
     }));
-  }, []);
+  }, [onNodeDoubleClick]);
 
   const decorateEdges = useCallback((sourceProject, selectedEdgeId = null) => {
     return buildFlowEdges(sourceProject).map((flowEdge) => {
@@ -211,11 +212,16 @@ function InnerBlueprint({ onSelectionChange }) {
 
   const handleDoubleClick = useCallback(
     (event) => {
+      const nodeElement = event.target.closest?.('.vn-bp-node');
+      if (nodeElement?.dataset?.nodeId) {
+        onNodeDoubleClick?.(nodeElement.dataset.nodeId);
+        return;
+      }
       if (!event.target.closest?.('.react-flow__pane')) return;
       const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       openMenu(event.clientX, event.clientY, flowPosition, null);
     },
-    [openMenu, screenToFlowPosition],
+    [onNodeDoubleClick, openMenu, screenToFlowPosition],
   );
 
   const handleConnectEnd = useCallback(
@@ -431,6 +437,10 @@ function InnerBlueprint({ onSelectionChange }) {
           onConnect={handleConnect}
           onConnectEnd={handleConnectEnd}
           onNodeDragStop={handleNodeDragStop}
+          onNodeDoubleClick={(event, flowNode) => {
+            const sourceNode = project.nodes.find((item) => item.id === flowNode.id);
+            if (sourceNode?.type === 'scene') onNodeDoubleClick?.(flowNode.id);
+          }}
           onSelectionChange={handleSelectionChange}
           onMoveEnd={handleMoveEnd}
           onDrop={handlePaneDrop}
@@ -494,10 +504,10 @@ function InnerBlueprint({ onSelectionChange }) {
   );
 }
 
-export default function BlueprintEditor({ onSelectionChange }) {
+export default function BlueprintEditor({ onSelectionChange, onNodeDoubleClick }) {
   return (
     <ReactFlowProvider>
-      <InnerBlueprint onSelectionChange={onSelectionChange} />
+      <InnerBlueprint onSelectionChange={onSelectionChange} onNodeDoubleClick={onNodeDoubleClick} />
     </ReactFlowProvider>
   );
 }
